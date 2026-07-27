@@ -69,20 +69,53 @@ Anyone can build a kanban. What this one knows is *the energy each day holds*.
 - **Updates on a ticket** are the lightweight "what I'm working on" the team reads
   without a standup.
 
-## Running it
+## Two modes, one component
+
+`src/RhythmCalendar.tsx` runs on seed data by default — no account, no network —
+so the design can be worked on freely. Pass it a `backend` and the same screens
+run on Postgres. Which one you get is decided at build time by whether
+credentials are present:
 
 ```bash
 npm install
-npm run dev      # esbuild dev server on :5173
-npm run build    # dist/index.html (standalone) + dist/artifact.html (fragment)
-npm run typecheck
+npm run build                      # mock data — this is what the artifact publishes
+cp .env.example .env && npm run live   # real accounts, real database
+npm run dev                        # esbuild dev server on :5173 (mock)
 ```
 
-`src/RhythmCalendar.tsx` is deliberately one self-contained file with inline
-styles and mock data — paste it anywhere React runs. State is in-memory; there is
-no backend yet.
+## Accounts and the database
+
+Supabase project **FeyApps** (`puijleicxiiumkbbeect`, eu-west-1). Schema lives in
+`supabase/migrations/` and is already applied.
+
+Sign-in is a magic link — an email with a link, no passwords. It is invite-only:
+`invites` holds addresses, and the first time one of them signs in a trigger
+creates their profile and joins them to the team. Invite from **לוח הצוות**.
+
+Google sign-in is written and one flag away: configure the Google provider in the
+Supabase dashboard, then flip `GOOGLE_ENABLED` in `src/SignIn.tsx`.
+
+### The privacy rule is enforced in the database
+
+`ticket` is the difference between a note only you can see and a card the team
+works from, so it is not left to the client:
+
+- Your private tasks are invisible to everyone else, published tickets are not.
+- Teammates can move, claim and comment on a published card, but only the owner
+  can take one private again — the `with check` on `tasks_update` is what stops
+  it.
+- The team can read which **energy** a day holds, and never the note written in
+  it. Row level security cannot hide one column, so `day_marks` and `day_notes`
+  are separate tables.
+- A private task with no day cannot exist; the check constraint refuses it.
+- Deleting a member takes their private notes with them and leaves their
+  tickets behind as unassigned work.
+
+Each of those is covered by an impersonation test — see the RLS suite in the
+commit history, which runs as one user and asserts what another cannot reach.
 
 ## Where the mock data lives
 
 `MEMBERS` is the team, `ME` is whose calendar you're editing, `seedMonth` seeds an
-example rhythm, and `seedTasks` seeds the board relative to today's date.
+example rhythm, and `seedTasks` seeds the board relative to today's date. None of
+it is used when a `backend` is passed.

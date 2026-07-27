@@ -2,3 +2,4 @@ node_modules/
 dist/
 public/app.js
 *.tmp.mjs
+.env

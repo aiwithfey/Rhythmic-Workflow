@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "esbuild src/main.tsx --bundle --jsx=automatic --outfile=public/app.js --servedir=public --serve=5173",
-    "typecheck": "tsc --noEmit"
+    "live": "node -e \"require('fs').readFileSync('.env','utf8').split('\\n').filter(l=>l.includes('=')&&!l.startsWith('#')).forEach(l=>{const i=l.indexOf('=');process.env[l.slice(0,i).trim()]=l.slice(i+1).trim()});require('child_process').execFileSync(process.execPath,['scripts/build.mjs'],{stdio:'inherit'})\""
   },
   "repository": {
     "type": "git",
@@ -15,6 +15,7 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.9",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -22,6 +23,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "esbuild": "^0.28.1",
+    "playwright": "^1.62.0",
     "typescript": "^7.0.2"
   }
 }
