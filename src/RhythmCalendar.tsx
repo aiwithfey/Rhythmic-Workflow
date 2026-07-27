@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 
 // ---- Brand palette (AI Goddesses) ----
 const C = {
@@ -51,7 +51,7 @@ const NEED_LABEL = { open: "גמיש", surge: "עומק", connection: "אנשי�
 const NEED_TINT = {
   open: { fill: "#FAF8F4", edge: "#E9E3D7" },
   surge: { fill: "#FBEAC6", edge: "#E5CB94" },
-  connection: { fill: "#FCEFF6", edge: "#EDD5E5" },
+  connection: { fill: "#FAE4F0", edge: "#E9C4DD" },
 };
 // gold at full strength is too light to set small text in
 const NEED_TEXT = { open: C.inkSoft, surge: "#8A6210", connection: C.magenta };
@@ -88,6 +88,16 @@ function isoToKey(iso) {
 function todayKey() {
   const n = new Date();
   return keyOf(n.getFullYear(), n.getMonth(), n.getDate());
+}
+function sundayOf(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+}
+function addDays(date, n) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() + n);
+  return d;
 }
 function prettyDate(k) {
   const p = parseKey(k);
@@ -508,6 +518,68 @@ function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar,
   );
 }
 
+// One of my tasks, outside the day it belongs to. A ticket keeps the board's
+// language — energy as fill, status as edge — so a scan of the list tells me
+// which of my notes the team can see.
+//
+// Inside a day, every row takes that day's mood, because they all share it.
+// A list crosses days, so color here has to mean one thing only: the energy a
+// ticket needs. Private notes stay on paper and keep the day's mood in their
+// shape — radius, weight, the italics of a rest day — rather than its color.
+function NoteRow({ t, dayType, onToggle, onOpenTicket, onPublish, onRemove }) {
+  const ts = TASK_STYLE[dayType || "open"];
+  const st = STATUS[t.status];
+  const tint = NEED_TINT[t.energy];
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8, padding: "7px 9px",
+      borderRadius: t.ticket ? 12 : ts.radius,
+      background: t.ticket ? tint.fill : C.cream,
+      border: `1px solid ${t.ticket ? tint.edge : C.line}`,
+      borderRight: t.ticket ? `3px solid ${st.accent}` : undefined,
+      opacity: t.done ? 0.65 : 1,
+    }}>
+      <button
+        onClick={() => onToggle(t.id)}
+        style={{
+          width: 19, height: 19, borderRadius: t.ticket ? 6 : ts.boxRadius, flexShrink: 0,
+          border: t.ticket ? `1.5px solid ${st.accent}` : ts.border,
+          background: t.done ? (t.ticket ? st.accent : ts.accent) : "transparent",
+          color: "#fff", fontSize: 12, display: "flex",
+          alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
+        }}
+      >{t.done ? "✓" : ""}</button>
+
+      <span style={{
+        flex: 1, fontSize: 13, textAlign: "right",
+        fontWeight: t.done ? 400 : t.ticket ? 600 : ts.weight,
+        fontStyle: ts.italic && !t.done && !t.ticket ? "italic" : "normal",
+        color: t.done ? C.mute : C.ink,
+        textDecoration: t.done ? "line-through" : "none",
+      }}>{t.text}</span>
+
+      {t.ticket ? (
+        <button onClick={() => onOpenTicket(t.id)} title="כרטיס פתוח בלוח הצוות"
+          style={{
+            display: "flex", alignItems: "center", gap: 4, cursor: "pointer",
+            background: "rgba(255,255,255,0.75)", color: st.accent, border: `1px solid ${st.accent}`,
+            borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap",
+          }}>🎫 {st.label}</button>
+      ) : (
+        <button onClick={() => onPublish(t)} title="פתחי כרטיס — המשימה תופיע בלוח הצוות"
+          style={{
+            display: "flex", alignItems: "center", gap: 4, cursor: "pointer",
+            background: "transparent", color: C.inkSoft, border: `1px dashed ${C.mute}`,
+            borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap",
+          }}>🔒 פתחי כרטיס</button>
+      )}
+
+      <button onClick={() => onRemove(t.id)}
+        style={{ background: "none", border: "none", color: C.mute, fontSize: 13, cursor: "pointer" }}>✕</button>
+    </div>
+  );
+}
+
 function Section({ title, children }) {
   return (
     <div style={{ marginTop: 14 }}>
@@ -542,6 +614,21 @@ export default function RhythmCalendar() {
   const [memberFilter, setMemberFilter] = useState(() => new Set(MEMBERS.map((x) => x.id)));
   const [scope, setScope] = useState("team"); // board: 'mine' | 'team'
   const [q, setQ] = useState("");
+  const [personalView, setPersonalView] = useState("calendar"); // 'calendar' | 'list'
+  const [listRange, setListRange] = useState("week"); // 'week' | 'month'
+  const [weekStart, setWeekStart] = useState(() => sundayOf(new Date()));
+
+  // Escape closes the topmost popup — the ticket sits above the day it came from
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== "Escape") return;
+      if (openTicketId) setOpenTicketId(null);
+      else if (selected) setSelected(null);
+      else if (teamSelected) setTeamSelected(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openTicketId, selected, teamSelected]);
 
   const total = daysInMonth(y, m);
   const lead = firstDow(y, m);
@@ -576,6 +663,27 @@ export default function RhythmCalendar() {
     setY(ny);
     setSelected(null);
     setTeamSelected(null);
+  }
+
+  // A week can straddle two months, so seed both before showing it.
+  function goWeek(delta) {
+    const next = addDays(weekStart, delta * 7);
+    const end = addDays(next, 6);
+    ensureMonth(next.getFullYear(), next.getMonth());
+    ensureMonth(end.getFullYear(), end.getMonth());
+    setWeekStart(next);
+    // carry the month along, so switching back to החודש lands where you walked to
+    setY(next.getFullYear());
+    setM(next.getMonth());
+  }
+
+  // open a day from anywhere, even one outside the month on screen
+  function openDay(k) {
+    const p = parseKey(k);
+    if (!p) return;
+    ensureMonth(p.y, p.m);
+    setY(p.y); setM(p.m);
+    setSelected(p.d); // the day opens over whichever view you were in
   }
 
   function setDayType(d, type) {
@@ -727,6 +835,43 @@ export default function RhythmCalendar() {
     return idx;
   }, [tasks]);
 
+  const weekKeys = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(weekStart, i);
+      arr.push(keyOf(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+    return arr;
+  }, [weekStart]);
+
+  const weekLabel = useMemo(() => {
+    const a = parseKey(weekKeys[0]);
+    const b = parseKey(weekKeys[6]);
+    return a.m === b.m
+      ? `${a.d}–${b.d} ב${MONTHS[a.m]}`
+      : `${a.d} ב${MONTHS[a.m]} – ${b.d} ב${MONTHS[b.m]}`;
+  }, [weekKeys]);
+
+  // everything of mine in the chosen range, grouped by the day it sits on.
+  // undated tickets get their own group so nothing of mine is unreachable.
+  const myList = useMemo(() => {
+    const keys = listRange === "week"
+      ? weekKeys
+      : Array.from({ length: total }, (_, i) => keyOf(y, m, i + 1));
+    const mine = tasks.filter((t) => t.ownerId === ME);
+    const groups = keys
+      .map((k) => ({ k, items: mine.filter((t) => t.dateKey === k) }))
+      .filter((g) => g.items.length > 0);
+    const undated = mine.filter((t) => !t.dateKey);
+    const shown = groups.reduce((n, g) => n + g.items.length, 0) + undated.length;
+    const all = [...groups.flatMap((g) => g.items), ...undated];
+    return {
+      groups, undated, shown,
+      tickets: all.filter((t) => t.ticket).length,
+      done: all.filter((t) => t.done).length,
+    };
+  }, [tasks, listRange, weekKeys, y, m, total]);
+
   // team marks for a given day, filtered. my own row comes from my real calendar.
   function teamMarksFor(d) {
     return MEMBERS
@@ -793,6 +938,8 @@ export default function RhythmCalendar() {
   }
 
   const wide = mode === "board";
+  const listMode = mode === "personal" && personalView === "list";
+  const weekMode = listMode && listRange === "week";
 
   return (
     <div style={{
@@ -848,15 +995,49 @@ export default function RhythmCalendar() {
             background: "#fff", borderRadius: 16, padding: "10px 14px",
             marginBottom: 14, boxShadow: "0 2px 10px rgba(46,34,48,0.06)",
           }}>
-            <button onClick={() => goMonth(-1)} style={navBtn}>▶</button>
-            <div style={{ fontFamily: DISPLAY, fontSize: 17, fontWeight: 600 }}>{MONTHS[m]} {y}</div>
-            <button onClick={() => goMonth(1)} style={navBtn}>◀</button>
+            <button onClick={() => weekMode ? goWeek(-1) : goMonth(-1)} style={navBtn}>▶</button>
+            <div style={{ fontFamily: DISPLAY, fontSize: 17, fontWeight: 600 }}>
+              {weekMode ? weekLabel : `${MONTHS[m]} ${y}`}
+            </div>
+            <button onClick={() => weekMode ? goWeek(1) : goMonth(1)} style={navBtn}>◀</button>
           </div>
         )}
 
         {mode === "personal" && (
           <>
+            {/* Calendar or flat list of everything of mine */}
+            <div style={{
+              display: "flex", gap: 8, alignItems: "center", justifyContent: "center",
+              flexWrap: "wrap", marginBottom: 14,
+            }}>
+              <div style={{ display: "flex", background: "#fff", borderRadius: 999, padding: 3, boxShadow: "0 2px 8px rgba(46,34,48,0.06)" }}>
+                {[{ key: "calendar", label: "לוח" }, { key: "list", label: "כל המשימות שלי" }].map((o) => (
+                  <button key={o.key} onClick={() => setPersonalView(o.key)}
+                    style={{
+                      border: "none", cursor: "pointer", padding: "6px 14px", borderRadius: 999,
+                      fontSize: 12.5, fontWeight: 700, fontFamily: DISPLAY,
+                      background: personalView === o.key ? C.ink : "transparent",
+                      color: personalView === o.key ? "#fff" : C.inkSoft,
+                    }}>{o.label}</button>
+                ))}
+              </div>
+              {listMode && (
+                <div style={{ display: "flex", background: "#F2EDE3", borderRadius: 999, padding: 3 }}>
+                  {[{ key: "week", label: "השבוע" }, { key: "month", label: "החודש" }].map((o) => (
+                    <button key={o.key} onClick={() => setListRange(o.key)}
+                      style={{
+                        border: "none", cursor: "pointer", padding: "6px 14px", borderRadius: 999,
+                        fontSize: 12.5, fontWeight: 700, fontFamily: DISPLAY,
+                        background: listRange === o.key ? C.lilac : "transparent",
+                        color: listRange === o.key ? "#fff" : C.inkSoft,
+                      }}>{o.label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Legend */}
+            {!listMode && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14, justifyContent: "center" }}>
               {ORDER.map((k) => {
                 const b = BLOCKS[k];
@@ -872,8 +1053,10 @@ export default function RhythmCalendar() {
                 );
               })}
             </div>
+            )}
 
-            {/* Rest counter */}
+            {/* Rest counter — a monthly instrument, so not over a single week */}
+            {!weekMode && (
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               background: restCount < minRest ? "#FBEAEA" : C.lilacSoft,
@@ -892,6 +1075,102 @@ export default function RhythmCalendar() {
                 <button onClick={() => setMinRest((v) => Math.min(20, v + 1))} style={miniBtn}>+</button>
               </div>
             </div>
+            )}
+
+            {listMode && (
+              <div style={{
+                background: "#fff", borderRadius: 18, padding: 12,
+                boxShadow: "0 4px 16px rgba(46,34,48,0.08)",
+              }}>
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  paddingBottom: 10, marginBottom: 10, borderBottom: `1px solid ${C.line}`,
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft }}>
+                    {myList.shown} משימות · {myList.tickets} כרטיסים · {myList.done} הושלמו
+                  </div>
+                  <div style={{ fontSize: 11, color: C.mute }}>🔒 פרטי · 🎫 כרטיס צוות</div>
+                </div>
+
+                {myList.groups.length === 0 && myList.undated.length === 0 && (
+                  <div style={{ fontSize: 13, color: C.mute, textAlign: "center", padding: "22px 0" }}>
+                    {listRange === "week" ? "אין משימות בשבוע הזה" : "אין משימות בחודש הזה"}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {myList.groups.map(({ k, items }) => {
+                    const p = parseKey(k);
+                    const rec = days[k] || { type: "open" };
+                    const b = BLOCKS[rec.type];
+                    const isToday = k === todayKey();
+                    return (
+                      <div key={k}>
+                        <button
+                          onClick={() => openDay(k)}
+                          title="פתחי את היום"
+                          style={{
+                            display: "flex", alignItems: "center", gap: 8, width: "100%",
+                            background: "transparent", border: "none", cursor: "pointer",
+                            padding: "0 2px 7px", textAlign: "right",
+                          }}
+                        >
+                          <span style={{
+                            fontFamily: DISPLAY, fontSize: 13.5, fontWeight: 700,
+                            color: isToday ? C.ink : C.inkSoft,
+                          }}>
+                            {DOW[new Date(p.y, p.m, p.d).getDay()]}׳ · {p.d} ב{MONTHS[p.m]}
+                            {isToday && " · היום"}
+                          </span>
+                          <Chip bg={b.chip} color={b.key === "open" ? C.inkSoft : C.ink} border={`1px solid ${C.line}`}>
+                            {b.icon || "○"} {b.label}
+                          </Chip>
+                          <span style={{ flex: 1 }} />
+                          <span style={{ fontSize: 11, color: C.mute }}>{items.length}</span>
+                        </button>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {items.map((t) => (
+                            <NoteRow
+                              key={t.id}
+                              t={t}
+                              dayType={rec.type}
+                              onToggle={(id) => patchTask(id, { done: !t.done })}
+                              onOpenTicket={setOpenTicketId}
+                              onPublish={publishTask}
+                              onRemove={removeTask}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {myList.undated.length > 0 && (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 2px 7px" }}>
+                        <span style={{ fontFamily: DISPLAY, fontSize: 13.5, fontWeight: 700, color: C.inkSoft }}>
+                          ללא תאריך
+                        </span>
+                        <span style={{ fontSize: 11, color: C.mute }}>· ממתינות במאגר</span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {myList.undated.map((t) => (
+                          <NoteRow
+                            key={t.id}
+                            t={t}
+                            dayType="open"
+                            onToggle={(id) => patchTask(id, { done: !t.done })}
+                            onOpenTicket={setOpenTicketId}
+                            onPublish={publishTask}
+                            onRemove={removeTask}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -1147,7 +1426,7 @@ export default function RhythmCalendar() {
         )}
 
         {/* ---------------- Calendar grid ---------------- */}
-        {mode !== "board" && (
+        {mode !== "board" && !listMode && (
           <div style={{ background: "#fff", borderRadius: 18, padding: 12, boxShadow: "0 4px 16px rgba(46,34,48,0.08)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 }}>
               {DOW.map((d) => (
@@ -1253,9 +1532,11 @@ export default function RhythmCalendar() {
 
         {mode !== "board" && (
           <div style={{ fontSize: 11.5, color: C.inkSoft, textAlign: "center", marginTop: 10 }}>
-            {mode === "personal"
-              ? "גררי יום כדי להזיז אותו למקום אחר · הקישי על יום כדי לערוך"
-              : "הקישי על יום כדי לראות מי מהצוות סימנה מה ועל מה היא עובדת"}
+            {mode === "team"
+              ? "הקישי על יום כדי לראות מי מהצוות סימנה מה ועל מה היא עובדת"
+              : listMode
+                ? "הקישי על תאריך כדי לפתוח את היום · 🔒 הופכת לכרטיס בלחיצה"
+                : "גררי יום כדי להזיז אותו למקום אחר · הקישי על יום כדי לערוך"}
           </div>
         )}
 

@@ -14,7 +14,7 @@ shared kanban board. Same object, one toggle apart.
 
 | View | What it is |
 | --- | --- |
-| **האזור שלי** | Your month. Set each day's energy, write a note, keep the day's tasks. |
+| **האזור שלי** | Your month. Set each day's energy, write a note, keep the day's tasks. Toggle **כל המשימות שלי** for everything of yours in one list, by week or by month. |
 | **לוח הצוות** | Everyone's energy on a calendar, filterable by person and by energy. Tapping a day shows who is on what — energy plus their open tickets for that day. |
 | **משימות הצוות** | The kanban board: מאגר · מתוכנן · בעבודה · הושלם. Same filters as the calendar, plus mine/team scope and search. |
 
@@ -33,6 +33,22 @@ private task has to live on a day — there is no dateless private list — so a
 undated ticket comes back to today, and the app opens that day so you can see
 where it landed. Only your own tickets offer this; you cannot turn someone
 else's ticket into your private note.
+
+## Everything of mine, in one list
+
+The calendar answers "what is this day", not "what do I owe". **כל המשימות שלי**
+in your zone lists your tasks grouped by day, for the current week or the whole
+month, with a count of tasks, tickets and completed at the top. The arrows walk
+weeks instead of months while the week range is on. Undated backlog tickets get
+their own group at the bottom, so nothing of yours is only reachable by
+remembering it. Tap any date to open that day; the publish control works from
+the list too.
+
+Color means one thing here: a tinted row is a ticket, and its tint is the
+energy that ticket needs. Private notes stay on paper and carry the day's mood
+in their shape — the radius, the weight, a rest day's italics — instead of its
+color, because a list crosses days and two color systems in one column read as
+noise.
 
 ## What ties the two halves together
 
