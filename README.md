@@ -27,7 +27,12 @@ Inside a day, each task carries a badge:
   opens the ticket.
 
 New tasks have a toggle right under the input, so you decide when you write it.
-Publishing is reversible: **החזירי לפרטי** in the ticket takes it back off the board.
+
+Publishing is reversible: **החזירי לפרטי** takes a ticket back off the board. A
+private task has to live on a day — there is no dateless private list — so an
+undated ticket comes back to today, and the app opens that day so you can see
+where it landed. Only your own tickets offer this; you cannot turn someone
+else's ticket into your private note.
 
 ## What ties the two halves together
 

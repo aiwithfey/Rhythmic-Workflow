@@ -46,10 +46,12 @@ const NEED_LABEL = { open: "גמיש", surge: "עומק", connection: "אנשי�
 // Card surfaces: the chip colors are too loud to sit under text, so these are
 // the same hues pulled almost all the way to paper. A card should read as
 // off-white first and as its energy second.
+// gold has to carry further than the other two: it is the hue closest to the
+// cream ground, so a light wash of it reads as "no color" rather than as energy.
 const NEED_TINT = {
-  open: { fill: "#FAF7F0", edge: "#EDE6D8" },
-  surge: { fill: "#FDF5E6", edge: "#EFDFBE" },
-  connection: { fill: "#FDF2F8", edge: "#EFDAE8" },
+  open: { fill: "#FAF8F4", edge: "#E9E3D7" },
+  surge: { fill: "#FBEAC6", edge: "#E5CB94" },
+  connection: { fill: "#FCEFF6", edge: "#EDD5E5" },
 };
 // gold at full strength is too light to set small text in
 const NEED_TEXT = { open: C.inkSoft, surge: "#8A6210", connection: C.magenta };
@@ -82,6 +84,10 @@ function isoToKey(iso) {
   if (!iso) return null;
   const [yy, mm, dd] = iso.split("-").map(Number);
   return keyOf(yy, mm - 1, dd);
+}
+function todayKey() {
+  const n = new Date();
+  return keyOf(n.getFullYear(), n.getMonth(), n.getDate());
 }
 function prettyDate(k) {
   const p = parseKey(k);
@@ -308,7 +314,7 @@ function TicketCard({ t, warn, onOpen, onDragStart, dragging }) {
   );
 }
 
-function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar }) {
+function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar, onUnpublish }) {
   const [draft, setDraft] = useState("");
   if (!task) return null;
   const owner = memberById(task.ownerId);
@@ -477,15 +483,25 @@ function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar 
           </div>
         </Section>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 16, borderTop: `1px solid ${C.line}`, paddingTop: 12 }}>
-          <button onClick={() => { onPatch(task.id, { ticket: false }); onClose(); }}
-            style={{ ...pillBtn, background: "#F2EDE3", color: C.inkSoft, border: `1px solid ${C.line}` }}>
-            🔒 החזירי לפרטי
-          </button>
-          <button onClick={() => { onDelete(task.id); onClose(); }}
-            style={{ ...pillBtn, background: "transparent", color: C.alert, border: `1px solid ${C.alertSoft}` }}>
-            מחקי
-          </button>
+        <div style={{ marginTop: 16, borderTop: `1px solid ${C.line}`, paddingTop: 12 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            {/* only your own ticket can become your private note */}
+            {task.ownerId === ME && (
+              <button onClick={() => onUnpublish(task)}
+                style={{ ...pillBtn, background: "#F2EDE3", color: C.inkSoft, border: `1px solid ${C.line}` }}>
+                🔒 החזירי לפרטי
+              </button>
+            )}
+            <button onClick={() => { onDelete(task.id); onClose(); }}
+              style={{ ...pillBtn, background: "transparent", color: C.alert, border: `1px solid ${C.alertSoft}` }}>
+              מחקי
+            </button>
+          </div>
+          {task.ownerId === ME && (
+            <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
+              יורדת מלוח הצוות וחוזרת אלייך ל<b>{prettyDate(task.dateKey || todayKey())}</b> באזור שלי.
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -627,6 +643,20 @@ export default function RhythmCalendar() {
       energy: dayType === "rest" ? "open" : dayType,
     });
     setOpenTicketId(t.id);
+  }
+
+  // Coming off the board, a task has to land on a day — a private task with no
+  // date belongs to no view at all. Undated tickets come back to today, and we
+  // open that day so it is never a question where the task went.
+  function unpublishTask(t) {
+    const target = t.dateKey || todayKey();
+    const p = parseKey(target);
+    patchTask(t.id, { ticket: false, ownerId: ME, dateKey: target });
+    ensureMonth(p.y, p.m);
+    setY(p.y); setM(p.m);
+    setOpenTicketId(null);
+    setMode("personal");
+    setSelected(p.d);
   }
 
   function handleDrop(targetD) {
@@ -1483,6 +1513,7 @@ export default function RhythmCalendar() {
           onDelete={removeTask}
           onClose={() => setOpenTicketId(null)}
           onShowInCalendar={showInCalendar}
+          onUnpublish={unpublishTask}
         />
       </div>
     </div>
