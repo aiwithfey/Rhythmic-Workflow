@@ -43,6 +43,17 @@ const STATUS_ORDER = ["backlog", "planned", "doing", "done"];
 const NEEDS = ["open", "surge", "connection"];
 const NEED_LABEL = { open: "גמיש", surge: "עומק", connection: "אנשים" };
 
+// Card surfaces: the chip colors are too loud to sit under text, so these are
+// the same hues pulled almost all the way to paper. A card should read as
+// off-white first and as its energy second.
+const NEED_TINT = {
+  open: { fill: "#FAF7F0", edge: "#EDE6D8" },
+  surge: { fill: "#FDF5E6", edge: "#EFDFBE" },
+  connection: { fill: "#FDF2F8", edge: "#EFDAE8" },
+};
+// gold at full strength is too light to set small text in
+const NEED_TEXT = { open: C.inkSoft, surge: "#8A6210", connection: C.magenta };
+
 // how many tickets one person can hold in "בעבודה" before we say something
 const WIP_LIMIT = 3;
 
@@ -232,17 +243,20 @@ function Chip({ bg, color, children, border, style }) {
 function TicketCard({ t, warn, onOpen, onDragStart, dragging }) {
   const st = STATUS[t.status];
   const need = BLOCKS[t.energy];
+  const tint = NEED_TINT[t.energy];
   return (
     <div
       draggable
       onDragStart={() => onDragStart(t.id)}
       onClick={() => onOpen(t.id)}
       style={{
-        background: "#fff", borderRadius: 12, padding: "9px 10px",
-        border: `1px solid ${C.line}`,
+        // fill = the energy the ticket needs, right edge = where it is on the board
+        background: t.done ? "#FBFAF8" : tint.fill,
+        borderRadius: 12, padding: "9px 10px",
+        border: `1px solid ${t.done ? C.line : tint.edge}`,
         borderRight: `3px solid ${st.accent}`,
         boxShadow: "0 1px 4px rgba(46,34,48,0.06)",
-        cursor: "grab", opacity: dragging ? 0.4 : 1,
+        cursor: "grab", opacity: dragging ? 0.4 : t.done ? 0.7 : 1,
         display: "flex", flexDirection: "column", gap: 7,
       }}
     >
@@ -257,11 +271,12 @@ function TicketCard({ t, warn, onOpen, onDragStart, dragging }) {
         {!t.ownerId && (
           <Chip bg="#fff" color={C.magenta} border={`1px dashed ${C.magenta}`}>מחפשת מישהי</Chip>
         )}
-        <Chip bg={need.chip} color={t.energy === "open" ? C.inkSoft : C.ink}>
+        {/* the card is already the right color — the chip only names it */}
+        <Chip bg="rgba(255,255,255,0.75)" color={NEED_TEXT[t.energy]} border={`1px solid ${tint.edge}`}>
           {need.icon || "○"} {NEED_LABEL[t.energy]}
         </Chip>
         {t.dateKey && (
-          <Chip bg={C.cream} color={C.inkSoft} border={`1px solid ${C.line}`}>
+          <Chip bg="rgba(255,255,255,0.75)" color={C.inkSoft} border={`1px solid ${tint.edge}`}>
             {prettyDate(t.dateKey)}
           </Chip>
         )}
@@ -297,6 +312,7 @@ function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar 
   const [draft, setDraft] = useState("");
   if (!task) return null;
   const owner = memberById(task.ownerId);
+  const tint = NEED_TINT[task.energy];
 
   function addUpdate() {
     const text = draft.trim();
@@ -319,9 +335,9 @@ function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar 
           value={task.text}
           onChange={(e) => onPatch(task.id, { text: e.target.value })}
           style={{
-            width: "100%", minHeight: 54, borderRadius: 10, border: `1px solid ${C.line}`,
+            width: "100%", minHeight: 54, borderRadius: 10, border: `1px solid ${tint.edge}`,
             padding: 10, fontSize: 14.5, fontWeight: 600, fontFamily: BODY, resize: "vertical",
-            boxSizing: "border-box", direction: "rtl", background: C.cream, color: C.ink,
+            boxSizing: "border-box", direction: "rtl", background: tint.fill, color: C.ink,
           }}
         />
 
@@ -1427,11 +1443,13 @@ export default function RhythmCalendar() {
                         <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
                           {list.map((t) => {
                             const st = STATUS[t.status];
+                            const tint = NEED_TINT[t.energy];
                             return (
                               <button key={t.id} onClick={() => setOpenTicketId(t.id)}
                                 style={{
                                   display: "flex", alignItems: "center", gap: 7, cursor: "pointer",
-                                  background: "#fff", border: `1px solid ${C.line}`,
+                                  background: t.done ? "#FBFAF8" : tint.fill,
+                                  border: `1px solid ${t.done ? C.line : tint.edge}`,
                                   borderRight: `3px solid ${st.accent}`,
                                   borderRadius: 10, padding: "6px 9px", textAlign: "right",
                                 }}>
