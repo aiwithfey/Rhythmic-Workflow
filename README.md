@@ -78,10 +78,21 @@ credentials are present:
 
 ```bash
 npm install
-npm run build                      # mock data — this is what the artifact publishes
-cp .env.example .env && npm run live   # real accounts, real database
-npm run dev                        # esbuild dev server on :5173 (mock)
+cp .env.example .env
+npm start          # build against the database + serve on http://localhost:3000 — sign in here
+
+npm run build      # mock data — this is what the artifact publishes
+npm run dev        # mock, with rebuild on save, on :5173
 ```
+
+Port 3000 is deliberate: it is Supabase's default Site URL, so magic links come
+back to the running app without configuring anything first. Deploy somewhere
+else and that URL has to be added under Authentication → URL Configuration, or
+links will bounce to localhost.
+
+There is no hosted URL yet. The published artifact is the **mockup** and cannot
+be the live app — artifacts run under a CSP that blocks requests to any external
+host, so the page could never reach Supabase.
 
 ## Accounts and the database
 
