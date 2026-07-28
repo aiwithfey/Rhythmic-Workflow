@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A queued deploy should replace an in-flight one, not fight it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build against the database
+        env:
+          # The publishable key is meant to reach the browser — row level
+          # security is what protects the data, not the secrecy of this string.
+          # Set repository variables of the same names to point a fork or a
+          # second project somewhere else.
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://puijleicxiiumkbbeect.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_2v6wxo4xpyX4Ubhwys8w-A_aXfRkgF6' }}
+        run: node scripts/build.mjs
+
+      - name: Prepare the site
+        run: |
+          # Magic links can come back on a path Pages has no file for; serving
+          # the app as the 404 makes that land on the app instead of an error.
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
+          # the artifact fragment is for claude.ai, not for this site
+          rm -f dist/artifact.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

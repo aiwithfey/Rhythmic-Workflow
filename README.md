@@ -90,9 +90,34 @@ back to the running app without configuring anything first. Deploy somewhere
 else and that URL has to be added under Authentication → URL Configuration, or
 links will bounce to localhost.
 
-There is no hosted URL yet. The published artifact is the **mockup** and cannot
-be the live app — artifacts run under a CSP that blocks requests to any external
-host, so the page could never reach Supabase.
+The published artifact is the **mockup** and cannot be the live app — artifacts
+run under a CSP that blocks requests to any external host, so the page could
+never reach Supabase.
+
+## Deploying
+
+`.github/workflows/deploy.yml` builds against the database and publishes to
+GitHub Pages on every push to `main`, landing at:
+
+**https://aiwithfey.github.io/Rhythmic-Workflow-/**
+
+Two things have to be switched on once, by hand:
+
+1. **Repository → Settings → Pages → Source: GitHub Actions.** Until this is
+   set, the workflow runs and the deploy step fails.
+2. **Supabase → Authentication → URL Configuration.** Add the Pages URL above as
+   the Site URL, or as an additional redirect URL. Magic links are refused if
+   they point somewhere that is not on that list.
+
+The app is served from `/Rhythmic-Workflow-/`, not the domain root, so sign-in
+sends `origin + pathname` as the return address rather than `origin` alone —
+otherwise every magic link would come back to the top of `aiwithfey.github.io`
+and miss the app entirely. `dist/index.html` is also published as `404.html`, so
+a link returning on an unexpected path still boots the app.
+
+The page is public; the data is not. A stranger who finds the URL can request a
+link and get an account, and will then see the "you are not on a team yet"
+screen and nothing else.
 
 ## Accounts and the database
 

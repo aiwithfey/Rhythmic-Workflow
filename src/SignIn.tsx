@@ -13,6 +13,11 @@ const BODY = "'Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
 // then the button would just fail, so it stays off rather than lying.
 const GOOGLE_ENABLED = false;
 
+// origin alone drops the path, which is wrong anywhere the app is not served
+// from the root — GitHub Pages puts it under /<repo>/. Send people back to the
+// page they actually started from.
+const returnTo = () => window.location.origin + window.location.pathname;
+
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
@@ -25,7 +30,7 @@ export default function SignIn() {
     setStatus("sending");
     const { error } = await supabase.auth.signInWithOtp({
       email: address,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: returnTo() },
     });
     if (error) {
       setStatus("error");
@@ -38,7 +43,7 @@ export default function SignIn() {
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: returnTo() },
     });
     if (error) { setStatus("error"); setMessage(error.message); }
   }
