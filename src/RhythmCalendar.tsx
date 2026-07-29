@@ -1132,7 +1132,7 @@ export default function RhythmCalendar({ backend = null }) {
             לוח הקצב שלנו
           </div>
           <div style={{ fontSize: 13, color: C.inkSoft, marginTop: 4 }}>
-            גל של תפוקה, חיבור ומנוחה — לא רשימת חובות
+            גל של תפוקה, חיבור ומנוחה
           </div>
         </div>
 

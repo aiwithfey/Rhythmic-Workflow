@@ -284,7 +284,14 @@ export function useBackend(session) {
       const { data, error } = await supabase.rpc("create_invite_link", {
         p_label: (label || "").trim(), p_days: 7,
       });
-      if (error) { fail(error); return null; }
+      if (error) {
+        const missing = error.code === "PGRST202"
+          || /could not find the function|does not exist|schema cache/i.test(error.message || "");
+        fail(missing
+          ? { message: "קישורי הזמנה עוד לא מותקנים במסד הנתונים — צריך להריץ את migration 0005_invite_links." }
+          : error);
+        return null;
+      }
       await load();
       return data;
     },
@@ -342,5 +349,7 @@ export function useBackend(session) {
     },
   }), [state.teamId, state.days, state.tasks, userId, fail]);
 
-  return { ...state, me: userId, actions, reload: load };
+  const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
+
+  return { ...state, me: userId, actions, reload: load, clearError };
 }

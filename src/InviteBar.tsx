@@ -33,6 +33,7 @@ export default function InviteBar({
   const [label, setLabel] = useState("");
   const [minting, setMinting] = useState(false);
   const [copied, setCopied] = useState("");
+  const [failed, setFailed] = useState(false);
 
   const pending = invites.length + links.length;
 
@@ -45,10 +46,14 @@ export default function InviteBar({
 
   async function mint() {
     setMinting(true);
+    setFailed(false);
     const token = await onCreateLink(label);
     setMinting(false);
+    // A silent no-op is the worst outcome here: say it failed and let the
+    // banner above carry the reason.
+    if (!token) { setFailed(true); return; }
     setLabel("");
-    if (token) copy(token);
+    copy(token);
   }
 
   async function copy(token) {
@@ -102,8 +107,16 @@ export default function InviteBar({
               }}>{minting ? "יוצרת..." : "צרי קישור"}</button>
             </div>
             <div style={{ fontSize: 11, color: C.mute, marginTop: 6, lineHeight: 1.6 }}>
-              קישור לשימוש חד־פעמי, תקף שבוע. שלחי בוואטסאפ — היא תיכנס עם קוד למייל ותצטרף לצוות אוטומטית.
+              קישור לשימוש חד־פעמי, תקף שבוע. שלחי בוואטסאפ — היא תיצור סיסמה ותצטרף לצוות אוטומטית.
             </div>
+            {failed && (
+              <div style={{
+                marginTop: 8, background: "#F7E3E0", color: "#C0574F", borderRadius: 10,
+                padding: "8px 10px", fontSize: 11.5, lineHeight: 1.6,
+              }}>
+                לא הצלחנו ליצור קישור. הסיבה מופיעה בהודעה שלמעלה.
+              </div>
+            )}
 
             {links.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
