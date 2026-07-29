@@ -59,6 +59,10 @@ const NEED_TEXT = { open: C.inkSoft, surge: "#8A6210", connection: C.magenta };
 // how many tickets one person can hold in "בעבודה" before we say something
 const WIP_LIMIT = 3;
 
+// Finished work is kept forever and shown sparingly: past this many, the done
+// column stops growing and sends you to the archive instead.
+const DONE_ON_BOARD = 10;
+
 const DISPLAY = "'Rubik','Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
 const BODY = "'Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
 
@@ -191,18 +195,23 @@ function seedTasks(y, m) {
 
   const t = (o) => ({
     id: nid(), text: "", done: false, ticket: true, status: "backlog",
-    ownerId: null, dateKey: null, energy: "open", blocked: false, blockedNote: "",
-    updates: [], ...o,
+    ownerId: null, dateKey: null, energy: "open", notes: "", completedAt: null,
+    blocked: false, blockedNote: "", updates: [], ...o,
   });
+  const ago = (n) => new Date(Date.now() - n * 86400000).toISOString();
+  // enough finished work that the archive has something to say
+  const closed = (text, ownerId, n, energy = "open") =>
+    t({ text, ownerId, status: "done", done: true, energy, completedAt: ago(n) });
 
   return [
     // mine, shared with the team
     t({ text: "לסגור את מערך הפעילות של יולי", ownerId: ME, status: "doing", energy: "surge", dateKey: D(0),
+        notes: "שלושה מסלולים: כלי אחד לכל שבוע. המסלול השלישי תלוי בהחלטה על הנושא של אוגוסט.",
         updates: [{ id: nid(), who: ME, text: "שני מסלולים מוכנים, נשאר השלישי", when: "היום" }] }),
     t({ text: "לכתוב את מדריך הוואטסאפ לשבוע הבא", ownerId: ME, status: "planned", energy: "open", dateKey: D(2) }),
     t({ text: "לבחור את הנושא של החודש הבא", ownerId: ME, status: "planned", energy: "connection", dateKey: D(4) }),
     t({ text: "לחשוב על מודל תמחור לסדנאות", ownerId: ME, status: "backlog", energy: "surge" }),
-    t({ text: "לעדכן את לוח הקצב של הצוות", ownerId: ME, status: "done", done: true, energy: "open", dateKey: D(-3) }),
+    closed("לעדכן את לוח הקצב של הצוות", ME, 3),
 
     // mine, private
     t({ text: "להזמין מתנה ליום ההולדת של אמא", ticket: false, ownerId: ME, dateKey: D(1), status: "planned" }),
@@ -212,14 +221,28 @@ function seedTasks(y, m) {
     t({ text: "לבנות את מצגת הדיון החודשי", ownerId: "m2", status: "doing", energy: "surge", dateKey: D(1),
         updates: [{ id: nid(), who: "m2", text: "מחכה לתמונות מאוריאן", when: "אתמול" }] }),
     t({ text: "לענות לפניות שיתופי פעולה", ownerId: "m2", status: "planned", energy: "connection", dateKey: D(3),
+        notes: "ארבע פניות פתוחות. שתיים מהן מבקשות חסות — צריך להחליט אם אנחנו בכלל בכיוון הזה.",
         blocked: true, blockedNote: "מחכה לאישור תקציב מפיי" }),
-    t({ text: "לשלוח את הניוזלטר החודשי", ownerId: "m2", status: "done", done: true, energy: "open", dateKey: D(-4) }),
+    closed("לשלוח את הניוזלטר החודשי", "m2", 4),
     t({ text: "לתאם עם המרצה האורחת", ownerId: "m3", status: "planned", energy: "connection", dateKey: D(2) }),
     t({ text: "לצלם שלושה רילסים לקהילה", ownerId: "m3", status: "backlog", energy: "surge" }),
-    t({ text: "לסכם את המשוב מהמפגש האחרון", ownerId: "m4", status: "done", done: true, energy: "open", dateKey: D(-2) }),
+    closed("לסכם את המשוב מהמפגש האחרון", "m4", 2),
     t({ text: "לסדר את מאגר הפרומפטים המשותף", ownerId: "m4", status: "doing", energy: "open", dateKey: D(1) }),
     t({ text: "לתקן את טופס ההרשמה באתר", ownerId: "m5", status: "doing", energy: "surge", dateKey: D(0) }),
     t({ text: "לעדכן את דף הנחיתה", ownerId: "m5", status: "backlog", energy: "open" }),
+
+    // a season of finished work, so the archive is worth opening
+    closed("להעביר את הסדנה בתל אביב", "m3", 6, "connection"),
+    closed("לבנות את דף ההרשמה למחזור הקודם", "m5", 9, "surge"),
+    closed("לכתוב את מדריך הוואטסאפ ליוני", ME, 12),
+    closed("לראיין שלוש חברות קהילה", "m4", 15, "connection"),
+    closed("לסדר את התיקייה המשותפת בדרייב", "m4", 18),
+    closed("להקליט את הפרק הראשון", "m3", 22, "surge"),
+    closed("לעצב את הפוסטר של יוני", "m5", 26, "surge"),
+    closed("לסגור תאריכים למפגש הקיץ", "m2", 31, "connection"),
+    closed("לעדכן את מאגר הפרומפטים", ME, 38),
+    closed("לבדוק כלי חדש ליצירת וידאו", "m3", 45, "surge"),
+    closed("לענות למשוב מהמחזור הקודם", "m2", 52, "connection"),
 
     // unclaimed — anyone can pick these up
     t({ text: "לתרגם את המדריך לאנגלית", ownerId: null, status: "backlog", energy: "open" }),
@@ -320,9 +343,22 @@ function TicketCard({ t, warn, onOpen, onDragStart, dragging }) {
         </div>
       )}
 
-      {t.updates.length > 0 && (
-        <div style={{ fontSize: 11, color: C.inkSoft, borderTop: `1px dashed ${C.line}`, paddingTop: 6, textAlign: "right" }}>
-          💬 {t.updates[t.updates.length - 1].text}
+      {(t.notes || t.updates.length > 0) && (
+        <div style={{
+          borderTop: `1px dashed ${C.line}`, paddingTop: 6, textAlign: "right",
+          display: "flex", flexDirection: "column", gap: 3,
+        }}>
+          {t.notes && (
+            <div style={{
+              fontSize: 11, color: C.inkSoft, display: "-webkit-box",
+              WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+            }}>📝 {t.notes}</div>
+          )}
+          {t.updates.length > 0 && (
+            <div style={{ fontSize: 11, color: C.inkSoft }}>
+              💬 {t.updates[t.updates.length - 1].text}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -373,6 +409,20 @@ function TicketModal({ task, warn, me, onPatch, onDelete, onClose, onShowInCalen
             {warn.level === "block" && " — אפשר להזיז את הכרטיס ליום אחר, המנוחה נשארת מוגנת."}
           </div>
         )}
+
+        <Section title="פרטים">
+          <textarea
+            value={task.notes || ""}
+            onChange={(e) => onPatch(task.id, { notes: e.target.value })}
+            placeholder="מה צריך לדעת כדי לעשות את זה — קישורים, החלטות, מה כבר נוסה..."
+            style={{
+              width: "100%", minHeight: 64, borderRadius: 10, border: `1px solid ${C.line}`,
+              padding: 10, fontSize: 13, fontFamily: BODY, resize: "vertical",
+              boxSizing: "border-box", direction: "rtl", background: "#fff", color: C.ink,
+              lineHeight: 1.5,
+            }}
+          />
+        </Section>
 
         <Section title="סטטוס">
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -623,7 +673,9 @@ export default function RhythmCalendar({ backend = null }) {
   const [newTaskText, setNewTaskText] = useState("");
   const [newTaskShared, setNewTaskShared] = useState(false);
   const [newCardText, setNewCardText] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [showArchive, setShowArchive] = useState(false);
+  const [doneFrom, setDoneFrom] = useState("");
+  const [doneTo, setDoneTo] = useState("");
   const [dragKey, setDragKey] = useState(null);
   const [dragTicketId, setDragTicketId] = useState(null);
   const [minRest, setMinRest] = useState(6);
@@ -1004,6 +1056,27 @@ export default function RhythmCalendar({ backend = null }) {
     });
   }, [tasks, scope, memberFilter, energyFilter, q]);
 
+  // The archive answers "what did we finish, and when" — so it filters by
+  // completion date rather than the scheduled day a card carried.
+  const archiveTickets = useMemo(() => {
+    const from = doneFrom ? new Date(doneFrom + "T00:00:00").getTime() : null;
+    const to = doneTo ? new Date(doneTo + "T23:59:59").getTime() : null;
+    return boardTickets
+      .filter((t) => t.status === "done")
+      .filter((t) => {
+        if (!from && !to) return true;
+        if (!t.completedAt) return false; // undated finished work cannot be in a range
+        const at = new Date(t.completedAt).getTime();
+        return (!from || at >= from) && (!to || at <= to);
+      })
+      .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
+  }, [boardTickets, doneFrom, doneTo]);
+
+  const doneCount = useMemo(
+    () => boardTickets.filter((t) => t.status === "done").length,
+    [boardTickets]
+  );
+
   const myDoing = useMemo(
     () => tasks.filter((t) => t.ticket && t.ownerId === me && t.status === "doing").length,
     [tasks]
@@ -1316,48 +1389,6 @@ export default function RhythmCalendar({ backend = null }) {
               })}
             </div>
 
-            {live && (
-              <div style={{ borderBottom: `1px solid ${C.line}`, paddingBottom: 12, marginBottom: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft, marginBottom: 8 }}>
-                  הזמנת חברת צוות
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { live.actions.invite(inviteEmail); setInviteEmail(""); }
-                    }}
-                    placeholder="אימייל להזמנה..."
-                    style={{ ...textInput, direction: "ltr", textAlign: "right" }}
-                  />
-                  <button
-                    onClick={() => { live.actions.invite(inviteEmail); setInviteEmail(""); }}
-                    style={{ ...primaryBtn, background: C.magenta }}
-                  >הזמיני</button>
-                </div>
-                {live.invites.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                    {live.invites.map((email) => (
-                      <span key={email} style={{
-                        display: "inline-flex", alignItems: "center", gap: 6,
-                        background: C.cream, border: `1px dashed ${C.mute}`, borderRadius: 999,
-                        padding: "4px 9px", fontSize: 11.5, color: C.inkSoft, direction: "ltr",
-                      }}>
-                        {email}
-                        <button onClick={() => live.actions.revokeInvite(email)}
-                          style={{ background: "none", border: "none", color: C.mute, cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div style={{ fontSize: 11, color: C.mute, marginTop: 8 }}>
-                  היא תצטרף לצוות אוטומטית בכניסה הראשונה שלה.
-                </div>
-              </div>
-            )}
-
             <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft, marginBottom: 8 }}>סינון לפי חברת צוות</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {members.map((mem) => {
@@ -1511,7 +1542,13 @@ export default function RhythmCalendar({ backend = null }) {
             }}>
               {STATUS_ORDER.map((s) => {
                 const st = STATUS[s];
-                const list = boardTickets.filter((t) => t.status === s);
+                let list = boardTickets.filter((t) => t.status === s);
+                let hidden = 0;
+                if (s === "done") {
+                  list = [...list].sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
+                  hidden = Math.max(0, list.length - DONE_ON_BOARD);
+                  list = list.slice(0, DONE_ON_BOARD);
+                }
                 return (
                   <div
                     key={s}
@@ -1554,6 +1591,20 @@ export default function RhythmCalendar({ backend = null }) {
                         />
                       ))}
                     </div>
+
+                    {s === "done" && (doneCount > 0) && (
+                      <button
+                        onClick={() => setShowArchive(true)}
+                        style={{
+                          marginTop: 10, width: "100%", background: "transparent",
+                          border: `1px dashed ${STATUS.done.accent}`, borderRadius: 10,
+                          color: STATUS.done.accent, padding: "8px 0", fontSize: 11.5,
+                          fontWeight: 700, cursor: "pointer", fontFamily: DISPLAY,
+                        }}
+                      >
+                        {hidden > 0 ? `עוד ${hidden} · כל מה שהושלם` : "כל מה שהושלם"}
+                      </button>
+                    )}
 
                     {s === "backlog" && (
                       <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
@@ -1932,6 +1983,152 @@ export default function RhythmCalendar({ backend = null }) {
                         <div style={{ fontSize: 11.5, color: C.inkSoft, marginTop: 6 }}>🌙 במנוחה — לא לתזמן</div>
                       )}
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- Everything completed ---------------- */}
+        {showArchive && (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 60, overflowY: "auto",
+            background: `linear-gradient(180deg, ${C.cream}, ${C.creamDeep})`,
+            padding: "20px 14px 40px", boxSizing: "border-box", direction: "rtl",
+          }}>
+            <div style={{ maxWidth: 960, margin: "0 auto" }}>
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                marginBottom: 14,
+              }}>
+                <div>
+                  <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700 }}>
+                    ✓ כל מה שהושלם
+                  </div>
+                  <div style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 3 }}>
+                    שום דבר לא נמחק — הלוח פשוט מראה רק את האחרונים
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowArchive(false)}
+                  style={{
+                    background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999,
+                    padding: "8px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                    fontFamily: DISPLAY, color: C.ink, whiteSpace: "nowrap",
+                  }}
+                >✕ חזרה ללוח</button>
+              </div>
+
+              <div style={{
+                background: "#fff", borderRadius: 16, padding: 12, marginBottom: 12,
+                boxShadow: "0 2px 10px rgba(46,34,48,0.06)",
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft, marginBottom: 8 }}>
+                  הושלם בין התאריכים
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+                  <input type="date" value={doneFrom} onChange={(e) => setDoneFrom(e.target.value)}
+                    style={{ borderRadius: 10, border: `1px solid ${C.line}`, padding: "7px 10px",
+                      fontSize: 13, fontFamily: BODY, background: "#fff", color: C.ink }} />
+                  <span style={{ color: C.inkSoft, fontSize: 12 }}>עד</span>
+                  <input type="date" value={doneTo} onChange={(e) => setDoneTo(e.target.value)}
+                    style={{ borderRadius: 10, border: `1px solid ${C.line}`, padding: "7px 10px",
+                      fontSize: 13, fontFamily: BODY, background: "#fff", color: C.ink }} />
+                  {(doneFrom || doneTo) && (
+                    <button onClick={() => { setDoneFrom(""); setDoneTo(""); }}
+                      style={{ ...pillBtn, background: "#F2EDE3", color: C.inkSoft, border: `1px solid ${C.line}` }}>
+                      כל הזמנים
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                  {NEEDS.map((k) => {
+                    const b = BLOCKS[k];
+                    const active = energyFilter.has(k);
+                    const isOpen = k === "open";
+                    return (
+                      <button key={k} onClick={() => toggleSet(setEnergyFilter, k)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 5,
+                          padding: "5px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                          background: active ? b.fill : "#F2EDE3",
+                          color: active ? (isOpen ? C.inkSoft : b.text) : C.mute,
+                          border: active ? `1px solid ${isOpen ? C.inkSoft : b.fill}` : "1px solid transparent",
+                        }}>
+                        <span>{b.icon || "○"}</span><span>{NEED_LABEL[k]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {members.map((mem) => {
+                    const active = memberFilter.has(mem.id);
+                    return (
+                      <button key={mem.id} onClick={() => toggleSet(setMemberFilter, mem.id)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6,
+                          padding: "4px 9px 4px 11px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                          background: active ? C.magentaSoft : "#F2EDE3",
+                          color: active ? C.ink : C.mute,
+                          border: active ? `1px solid ${C.line}` : "1px solid transparent",
+                          opacity: active ? 1 : 0.7,
+                        }}>
+                        <span>{mem.name}</span>
+                        <span style={{
+                          width: 18, height: 18, borderRadius: "50%",
+                          background: active ? C.ink : C.mute, color: "#fff", fontSize: 9,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>{mem.initials}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, color: C.inkSoft, fontWeight: 700, margin: "0 2px 8px" }}>
+                {archiveTickets.length} כרטיסים
+              </div>
+
+              {archiveTickets.length === 0 && (
+                <div style={{
+                  background: "#fff", borderRadius: 16, padding: "30px 16px",
+                  textAlign: "center", fontSize: 13, color: C.mute,
+                }}>אין כרטיסים שהושלמו בטווח הזה</div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {archiveTickets.map((t) => {
+                  const tint = NEED_TINT[t.energy];
+                  const need = BLOCKS[t.energy];
+                  return (
+                    <button key={t.id} onClick={() => setOpenTicketId(t.id)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10, textAlign: "right",
+                        background: "#fff", border: `1px solid ${C.line}`,
+                        borderRight: `3px solid ${STATUS.done.accent}`,
+                        borderRadius: 12, padding: "10px 12px", cursor: "pointer",
+                        boxShadow: "0 1px 4px rgba(46,34,48,0.05)",
+                      }}>
+                      <Avatar id={t.ownerId} size={26} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{t.text}</div>
+                        {t.notes && (
+                          <div style={{
+                            fontSize: 11.5, color: C.inkSoft, marginTop: 3,
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>📝 {t.notes}</div>
+                        )}
+                      </div>
+                      <Chip bg={tint.fill} color={NEED_TEXT[t.energy]} border={`1px solid ${tint.edge}`}>
+                        {need.icon || "○"} {NEED_LABEL[t.energy]}
+                      </Chip>
+                      <span style={{ fontSize: 11.5, color: C.inkSoft, whiteSpace: "nowrap", minWidth: 62, textAlign: "left" }}>
+                        {t.completedAt ? new Date(t.completedAt).toLocaleDateString("he-IL", { day: "numeric", month: "short" }) : "—"}
+                      </span>
+                    </button>
                   );
                 })}
               </div>

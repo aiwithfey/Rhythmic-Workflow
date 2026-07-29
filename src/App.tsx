@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import RhythmCalendar from "./RhythmCalendar";
 import SignIn from "./SignIn";
 import AccountBar from "./AccountBar";
+import InviteBar from "./InviteBar";
 import { supabase, isLive } from "./supabase";
 import { useBackend } from "./backend";
 
@@ -51,6 +52,11 @@ function LiveApp({ session }) {
         email={session.user.email}
         onRename={backend.actions.setMyName}
         onSignOut={() => supabase.auth.signOut()}
+      />
+      <InviteBar
+        invites={backend.invites}
+        onInvite={backend.actions.invite}
+        onRevoke={backend.actions.revokeInvite}
       />
     </>
   );
