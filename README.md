@@ -73,7 +73,13 @@ Anyone can build a kanban. What this one knows is *the energy each day holds*.
 - **WIP guard.** More than three tickets in בעבודה prompts a nudge, not a badge.
 - **Unclaimed tickets** show *מחפשת מישהי* and an "אני לוקחת את זה" button.
 - **Updates on a ticket** are the lightweight "what I'm working on" the team reads
-  without a standup.
+  without a standup. Separate from **פרטים**, the ticket's own notes: an update
+  says what changed, a note says what the work is. Detail lives there so the
+  title can stay a name and the board stays readable.
+- **Finished work is kept, not displayed.** The done column shows the ten most
+  recent and sends the rest to **כל מה שהושלם** — the same filters as the board
+  plus a completion date range, as a flat list rather than columns, since a
+  finished ticket has nowhere left to move.
 
 ## Two modes, one component
 
@@ -132,7 +138,9 @@ Supabase project **FeyApps** (`puijleicxiiumkbbeect`, eu-west-1). Schema lives i
 
 Sign-in is a magic link — an email with a link, no passwords. It is invite-only:
 `invites` holds addresses, and the first time one of them signs in a trigger
-creates their profile and joins them to the team. Invite from **לוח הצוות**.
+creates their profile and joins them to the team. Invite from the collapsed
+panel below the account bar — adding someone happens rarely, so it does not sit
+inside a view used daily.
 
 That trigger names you after your email address, so the account bar under the
 calendar lets you fix it. Initials follow the name rather than being set

@@ -31,6 +31,8 @@ const rowToTask = (row, updates) => ({
   ownerId: row.owner_id,
   dateKey: row.day ? dateToKey(row.day) : null,
   energy: row.energy,
+  notes: row.notes || "",
+  completedAt: row.completed_at || null,
   blocked: row.blocked,
   blockedNote: row.blocked_note || "",
   updates: updates || [],
@@ -39,7 +41,7 @@ const rowToTask = (row, updates) => ({
 // camelCase patch from the UI -> column names
 const PATCH_COLUMNS = {
   text: "text", done: "done", ticket: "ticket", status: "status",
-  energy: "energy", blocked: "blocked", blockedNote: "blocked_note",
+  energy: "energy", notes: "notes", blocked: "blocked", blockedNote: "blocked_note",
   ownerId: "owner_id",
 };
 function patchToRow(patch) {
@@ -167,6 +169,9 @@ export function useBackend(session) {
       if (patch.done !== undefined && !patch.status) {
         next.status = patch.done ? "done" : next.dateKey ? "planned" : "backlog";
       }
+      // the trigger stamps this server-side; mirror it so the archive sorts
+      // correctly before the write comes back
+      if (next.done !== current.done) next.completedAt = next.done ? new Date().toISOString() : null;
       setState((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === id ? next : t)) }));
       const row = { ...patchToRow(patch), done: next.done, status: next.status };
       const { error } = await supabase.from("tasks").update(row).eq("id", id);
@@ -184,6 +189,7 @@ export function useBackend(session) {
         status: fields.status || "backlog",
         day: fields.dateKey ? keyToDate(fields.dateKey) : null,
         energy: fields.energy || "open",
+        notes: fields.notes || "",
       }).select().single();
       if (error) return fail(error);
       setState((s) => ({ ...s, tasks: [...s.tasks, rowToTask(data, [])] }));
