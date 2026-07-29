@@ -171,10 +171,13 @@ also why renaming the repository can no longer break sign-in.
 are in. Without the link that would be two — an invite and a login code — and
 the hourly cap makes two people at once impossible.
 
-Google sign-in is written and one flag away, but genuinely needs setup nobody
-else can do: create an OAuth client in the Google Cloud console, paste its ID
-and secret into the Supabase dashboard, then flip `GOOGLE_ENABLED` in
-`src/SignIn.tsx`.
+Google sign-in is on. It needed setup nobody else could do — an OAuth client
+in the Google Cloud console, its ID and secret pasted into the Supabase
+dashboard — and once that existed, flipping `GOOGLE_ENABLED` in
+`src/SignIn.tsx` was the entire code change. It goes through the same
+invite-only gate as everything else: an unrecognised Google account lands on
+the "not on a team yet" screen exactly like an unrecognised password
+sign-up.
 
 ### The privacy rule is enforced in the database
 

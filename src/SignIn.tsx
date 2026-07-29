@@ -10,9 +10,10 @@ const C = {
 const DISPLAY = "'Rubik','Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
 const BODY = "'Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
 
-// Google appears only once it is configured in the Supabase dashboard; until
-// then the button would just fail, so it stays off rather than lying.
-const GOOGLE_ENABLED = false;
+// The OAuth client and its redirect URI live in Google Cloud Console; the
+// client ID/secret pair is pasted into the Supabase dashboard. Flip this once
+// that is done — before it, the button would just fail.
+const GOOGLE_ENABLED = true;
 
 // Supabase speaks English to developers. These are the ones a person signing in
 // can actually hit, said in a way that tells them what to do next.
