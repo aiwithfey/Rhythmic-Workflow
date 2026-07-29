@@ -3,24 +3,62 @@ import React, { useState } from "react";
 const C = {
   cream: "#F6F1E9", creamDeep: "#EFE7D8", ink: "#2E2230", inkSoft: "#6E5C6B",
   line: "#E2D7C6", magenta: "#B23A7E", magentaSoft: "#F1D6E5", mute: "#BDB2AE",
+  sage: "#5E8B5A", sageSoft: "#E2EBDE",
 };
 const DISPLAY = "'Rubik','Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
 const BODY = "'Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
+
+const linkFor = (token) =>
+  `${window.location.origin}${window.location.pathname}?invite=${token}`;
+
+function daysLeft(iso) {
+  const d = Math.ceil((new Date(iso) - Date.now()) / 86400000);
+  return d <= 1 ? "יום אחרון" : `עוד ${d} ימים`;
+}
 
 /**
  * Adding someone to the team happens a handful of times ever, so it sits below
  * the account rather than inside a view people use daily — collapsed until
  * asked for.
+ *
+ * Two ways in. The link is the one to reach for: send it over WhatsApp and the
+ * only email involved is their login code, which matters because the built-in
+ * sender allows two an hour.
  */
-export default function InviteBar({ invites, onInvite, onRevoke }) {
+export default function InviteBar({
+  invites, links = [], onInvite, onRevoke, onCreateLink, onRevokeLink,
+}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [label, setLabel] = useState("");
+  const [minting, setMinting] = useState(false);
+  const [copied, setCopied] = useState("");
+
+  const pending = invites.length + links.length;
 
   function send() {
     const address = email.trim();
     if (!address) return;
     onInvite(address);
     setEmail("");
+  }
+
+  async function mint() {
+    setMinting(true);
+    const token = await onCreateLink(label);
+    setMinting(false);
+    setLabel("");
+    if (token) copy(token);
+  }
+
+  async function copy(token) {
+    try {
+      await navigator.clipboard.writeText(linkFor(token));
+      setCopied(token);
+      setTimeout(() => setCopied(""), 2000);
+    } catch {
+      // the clipboard can be refused; the link is still listed to copy by hand
+    }
   }
 
   return (
@@ -35,18 +73,73 @@ export default function InviteBar({ invites, onInvite, onRevoke }) {
               color: C.inkSoft, cursor: "pointer", fontFamily: DISPLAY,
             }}
           >
-            הוספת חברת צוות{invites.length > 0 ? ` · ${invites.length} ממתינות` : ""}
+            הוספת חברת צוות{pending > 0 ? ` · ${pending} ממתינות` : ""}
           </button>
         ) : (
           <div style={{
             background: "#fff", borderRadius: 14, padding: 12,
             boxShadow: "0 2px 10px rgba(46,34,48,0.06)",
           }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft }}>הזמנת חברת צוות</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft }}>הוספת חברת צוות</div>
               <button onClick={() => setOpen(false)} style={{
                 background: "none", border: "none", color: C.inkSoft, fontSize: 14, cursor: "pointer",
               }}>✕</button>
+            </div>
+
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") mint(); }}
+                placeholder="למי הקישור? (לא חובה)"
+                style={inputStyle}
+              />
+              <button onClick={mint} disabled={minting} style={{
+                background: C.ink, color: "#fff", border: "none", borderRadius: 10,
+                padding: "0 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                fontFamily: DISPLAY, whiteSpace: "nowrap", opacity: minting ? 0.6 : 1,
+              }}>{minting ? "יוצרת..." : "צרי קישור"}</button>
+            </div>
+            <div style={{ fontSize: 11, color: C.mute, marginTop: 6, lineHeight: 1.6 }}>
+              קישור לשימוש חד־פעמי, תקף שבוע. שלחי בוואטסאפ — היא תיכנס עם קוד למייל ותצטרף לצוות אוטומטית.
+            </div>
+
+            {links.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+                {links.map((l) => (
+                  <div key={l.token} style={{
+                    background: C.cream, border: `1px solid ${C.line}`, borderRadius: 10,
+                    padding: "8px 10px", display: "flex", alignItems: "center", gap: 8,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "right" }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink }}>
+                        {l.label || "קישור הזמנה"}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: C.mute }}>{daysLeft(l.expires_at)} · לא נוצל</div>
+                    </div>
+                    <button onClick={() => copy(l.token)} style={{
+                      background: copied === l.token ? C.sageSoft : "#fff",
+                      border: `1px solid ${copied === l.token ? C.sage : C.line}`,
+                      color: copied === l.token ? C.sage : C.ink,
+                      borderRadius: 999, padding: "5px 11px", fontSize: 11.5, fontWeight: 700,
+                      cursor: "pointer", whiteSpace: "nowrap", fontFamily: BODY,
+                    }}>{copied === l.token ? "✓ הועתק" : "העתקי"}</button>
+                    <button onClick={() => onRevokeLink(l.token)} title="ביטול הקישור" style={{
+                      background: "none", border: "none", color: C.mute, cursor: "pointer", fontSize: 13,
+                    }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              margin: "14px 0 10px", color: C.mute, fontSize: 11,
+            }}>
+              <span style={{ flex: 1, height: 1, background: C.line }} />
+              <span>או לפי כתובת מייל</span>
+              <span style={{ flex: 1, height: 1, background: C.line }} />
             </div>
 
             <div style={{ display: "flex", gap: 6 }}>
@@ -56,12 +149,7 @@ export default function InviteBar({ invites, onInvite, onRevoke }) {
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") send(); }}
                 placeholder="אימייל להזמנה..."
-                style={{
-                  flex: 1, minWidth: 0, borderRadius: 10, border: `1px solid ${C.line}`,
-                  padding: "8px 10px", fontSize: 13, fontFamily: BODY,
-                  direction: "ltr", textAlign: "right", boxSizing: "border-box",
-                  background: C.cream, color: C.ink,
-                }}
+                style={{ ...inputStyle, direction: "ltr", textAlign: "right" }}
               />
               <button onClick={send} style={{
                 background: C.magenta, color: "#fff", border: "none", borderRadius: 10,
@@ -86,13 +174,15 @@ export default function InviteBar({ invites, onInvite, onRevoke }) {
                 ))}
               </div>
             )}
-
-            <div style={{ fontSize: 11, color: C.mute, marginTop: 8 }}>
-              היא תצטרף לצוות אוטומטית בכניסה הראשונה שלה.
-            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
+
+const inputStyle = {
+  flex: 1, minWidth: 0, borderRadius: 10, border: `1px solid ${C.line}`,
+  padding: "8px 10px", fontSize: 13, fontFamily: BODY,
+  direction: "rtl", boxSizing: "border-box", background: C.cream, color: C.ink,
+};
