@@ -54,7 +54,9 @@ noise.
 
 Anyone can build a kanban. What this one knows is *the energy each day holds*.
 
-- **Tickets carry the energy they need** — עומק / אנשים / גמיש.
+- **Tickets carry the energy they need**, named exactly as the calendar names
+  it — אנרגיה גבוהה / חיבור / גמיש, from one shared definition rather than a
+  board-only shorthand.
 - **Mismatches surface on the card.** A deep-focus ticket parked on a connection
   day gets a soft ⚠️; anything scheduled onto a protected rest day gets 🌙
   *מתוזמן ליום מנוחה מוגן*.
