@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  pages: write
+  pages: write        # also lets configure-pages enable Pages on first run
   id-token: write
 
 # A queued deploy should replace an in-flight one, not fight it.
@@ -20,6 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Turns Pages on for the repository if it is not already, so the deploy
+      # does not depend on someone having found the right settings screen.
+      # Without this the deploy step fails instantly with nothing built wrong.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/setup-node@v4
         with:
