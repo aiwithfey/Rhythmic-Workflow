@@ -21,10 +21,8 @@ function readable(message) {
   const m = (message || "").toLowerCase();
   if (m.includes("invalid login credentials"))
     return "האימייל או הסיסמה לא נכונים.";
-  if (m.includes("already registered") || m.includes("already been registered"))
-    return "כבר יש חשבון עם הכתובת הזו — אפשר להיכנס עם הסיסמה, או עם קוד למייל.";
-  if (m.includes("password") && (m.includes("6") || m.includes("short") || m.includes("least")))
-    return "הסיסמה צריכה להיות לפחות 6 תווים.";
+  if (m.includes("signups not allowed") || m.includes("user not found"))
+    return "עוד אין לך חשבון. חשבונות נפתחים ידנית — פנייה למי שמנהלת את המערכת כדי להצטרף.";
   if (m.includes("email not confirmed"))
     return "צריך לאשר את כתובת המייל לפני הכניסה — חפשי את מייל האישור.";
   if (m.includes("rate limit") || m.includes("too many"))
@@ -40,36 +38,21 @@ function readable(message) {
 
 export default function SignIn() {
   const [method, setMethod] = useState("password"); // 'password' | 'code'
-  const [creating, setCreating] = useState(false);  // password: sign in vs sign up
   const [step, setStep] = useState("email");        // code flow: 'email' | 'code'
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
 
   async function withPassword(e) {
     e?.preventDefault();
     const address = email.trim();
     if (!address || !password) return;
-    setBusy(true); setError(""); setNotice("");
-
-    if (!creating) {
-      const { error: err } = await supabase.auth.signInWithPassword({ email: address, password });
-      setBusy(false);
-      if (err) setError(readable(err.message));
-      return;
-    }
-
-    const { data, error: err } = await supabase.auth.signUp({ email: address, password });
+    setBusy(true); setError("");
+    const { error: err } = await supabase.auth.signInWithPassword({ email: address, password });
     setBusy(false);
-    if (err) { setError(readable(err.message)); return; }
-    // With email confirmation on, there is no session yet and a mail is on its
-    // way. With it off, they are already in and App takes over.
-    if (!data.session) {
-      setNotice("שלחנו מייל אישור לכתובת הזו. אחרי האישור אפשר להיכנס עם הסיסמה.");
-    }
+    if (err) setError(readable(err.message));
   }
 
   async function sendCode(e) {
@@ -80,7 +63,10 @@ export default function SignIn() {
     setError("");
     // No emailRedirectTo: there is no link to come back from, which is the
     // point — nothing to prefetch, expire, or keep in a redirect allow-list.
-    const { error: err } = await supabase.auth.signInWithOtp({ email: address });
+    // shouldCreateUser: false — accounts are added manually, not by requesting a code.
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: address, options: { shouldCreateUser: false },
+    });
     setBusy(false);
     if (err) { setError(readable(err.message)); return; }
     setStep("code");
@@ -127,9 +113,9 @@ export default function SignIn() {
         {GOOGLE_ENABLED && step === "email" && (
           <>
             <button type="button" onClick={signInWithGoogle} style={{
-              width: "100%", background: C.magenta, color: "#fff", border: "none", borderRadius: 12,
+              width: "100%", background: "#ece4d6", color: C.ink, border: "none", borderRadius: 12,
               padding: "11px 0", fontSize: 14, fontWeight: 700, fontFamily: DISPLAY, cursor: "pointer",
-              boxSizing: "border-box", boxShadow: `0 4px 12px ${C.magentaSoft}`,
+              boxSizing: "border-box",
             }}>המשיכי עם Google</button>
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.inkSoft, fontSize: 11.5, margin: "14px 0" }}>
               <span style={{ flex: 1, height: 1, background: C.line }} />
@@ -145,7 +131,7 @@ export default function SignIn() {
           }}>
             {[{ k: "password", label: "סיסמה" }, { k: "code", label: "קוד למייל" }].map((o) => (
               <button key={o.k} type="button"
-                onClick={() => { setMethod(o.k); setError(""); setNotice(""); }}
+                onClick={() => { setMethod(o.k); setError(""); }}
                 style={{
                   flex: 1, border: "none", cursor: "pointer", padding: "7px 0", borderRadius: 999,
                   fontSize: 12.5, fontWeight: 700, fontFamily: DISPLAY,
@@ -165,18 +151,13 @@ export default function SignIn() {
             />
             <input
               type="password" required value={password}
-              autoComplete={creating ? "new-password" : "current-password"}
+              autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={creating ? "סיסמה חדשה (6 תווים לפחות)" : "סיסמה"}
+              placeholder="סיסמה"
               style={{ ...inputStyle, direction: "ltr", textAlign: "right" }}
             />
             <button type="submit" disabled={busy} style={{ ...primary, opacity: busy ? 0.6 : 1 }}>
-              {busy ? "רגע..." : creating ? "יצירת חשבון" : "כניסה"}
-            </button>
-            <button type="button"
-              onClick={() => { setCreating(!creating); setError(""); setNotice(""); }}
-              style={linkBtn}>
-              {creating ? "כבר יש לי חשבון" : "אין לי עדיין חשבון — הרשמה"}
+              {busy ? "רגע..." : "כניסה"}
             </button>
           </form>
         ) : step === "email" ? (
@@ -229,13 +210,6 @@ export default function SignIn() {
           </form>
         )}
 
-        {notice && (
-          <div style={{
-            marginTop: 12, background: C.sageSoft, color: C.ink, borderRadius: 12,
-            padding: "10px 12px", fontSize: 12.5, lineHeight: 1.6, textAlign: "right",
-          }}>{notice}</div>
-        )}
-
         {error && (
           <div style={{
             marginTop: 12, background: C.alertSoft, color: C.alert, borderRadius: 12,
@@ -244,7 +218,7 @@ export default function SignIn() {
         )}
 
         <div style={{ fontSize: 11.5, color: C.inkSoft, marginTop: 18, lineHeight: 1.6 }}>
-          הכניסה בהזמנה בלבד. אם הכתובת שלך לא הוזמנה לצוות, תיכנסי אבל הלוח יהיה ריק.
+          הכניסה למי שכבר בצוות בלבד. חברה חדשה מתווספת ידנית — פנייה למי שמנהלת את המערכת כדי להצטרף.
         </div>
       </div>
     </div>

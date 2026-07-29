@@ -158,19 +158,18 @@ editor, or merging the separate owner-created-account PR, which creates a
 password-based account directly rather than working with an existing Google
 sign-in. Neither is wired into the app UI right now.
 
-Password and code sign-up remain open to anyone who reaches the sign-in
-screen — Google Console's allow-list only applies to the Google button. The
-same "not on a team yet" screen is what stops that from mattering: an account
-with no `team_members` row can authenticate but reaches nothing.
-
-A signup names you after your email address, so the account bar under the
-calendar lets you fix it. Initials follow the name rather than being set
-separately — they exist only to fill an avatar.
+There is no sign-up on this screen — this is an internal tool, and new team
+members are added by hand rather than by anyone who reaches the page. The
+password tab only signs in; the code tab passes `shouldCreateUser: false`, so
+requesting a code for an address with no existing account fails instead of
+quietly creating one. Google is the one path that can still create a fresh
+auth user on first login, which is why Google Console's Testing-mode allow-list
+is what actually gates who can get in that way.
 
 Password is the default sign-in tab, because it costs no email at all — the
-built-in sender allows two an hour, which is not enough to onboard a team by
-code alone. An account made with a code has no password until the account bar
-gives it one.
+built-in sender allows two an hour, which is not enough to reach a team by
+code alone. An account made without a password (Google, or a code-only
+account created by hand) gets one from the account bar under the calendar.
 
 The code option replaced what used to be a magic link. A link is single-use,
 so it dies when a mail scanner prefetches it, when a newer one supersedes it,
