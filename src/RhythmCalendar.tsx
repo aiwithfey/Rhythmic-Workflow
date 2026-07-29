@@ -346,22 +346,13 @@ function TicketCard({ t, warn, onOpen, onDragStart, dragging }) {
         </div>
       )}
 
-      {(t.notes || t.updates.length > 0) && (
-        <div style={{
-          borderTop: `1px dashed ${C.line}`, paddingTop: 6, textAlign: "right",
-          display: "flex", flexDirection: "column", gap: 3,
-        }}>
-          {t.notes && (
-            <div style={{
-              fontSize: 11, color: C.inkSoft, display: "-webkit-box",
-              WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-            }}>📝 {t.notes}</div>
-          )}
-          {t.updates.length > 0 && (
-            <div style={{ fontSize: 11, color: C.inkSoft }}>
-              💬 {t.updates[t.updates.length - 1].text}
-            </div>
-          )}
+      {/* Notes are the ticket's own detail and stay inside it — a preview here
+          would put "פרטים" back on the board, exactly what notes exist to keep off. */}
+      {t.updates.length > 0 && (
+        <div style={{ borderTop: `1px dashed ${C.line}`, paddingTop: 6, textAlign: "right" }}>
+          <div style={{ fontSize: 11, color: C.inkSoft }}>
+            💬 {t.updates[t.updates.length - 1].text}
+          </div>
         </div>
       )}
     </div>
@@ -2121,12 +2112,6 @@ export default function RhythmCalendar({ backend = null }) {
                       <Avatar id={t.ownerId} size={26} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{t.text}</div>
-                        {t.notes && (
-                          <div style={{
-                            fontSize: 11.5, color: C.inkSoft, marginTop: 3,
-                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                          }}>📝 {t.notes}</div>
-                        )}
                       </div>
                       <Chip bg={tint.fill} color={NEED_TEXT[t.energy]} border={`1px solid ${tint.edge}`}>
                         {need.icon || "○"} {NEED_LABEL[t.energy]}

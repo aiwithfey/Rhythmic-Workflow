@@ -67,8 +67,6 @@ export function useBackend(session) {
     error: null,
     teamId: null,
     members: [],
-    invites: [],
-    inviteLinks: [],
     days: {},      // my own: { [dateKey]: { type, note } }
     teamDays: {},  // everyone's energy: { [userId]: { [dateKey]: type } }
     tasks: [],
@@ -87,21 +85,14 @@ export function useBackend(session) {
       }
       const teamId = membership.team_id;
 
-      const [members, marks, notes, tasks, updates, invites, links] = await Promise.all([
+      const [members, marks, notes, tasks, updates] = await Promise.all([
         supabase.from("team_members").select("user_id, role, profiles(id, name, initials)").eq("team_id", teamId),
         supabase.from("day_marks").select("user_id, day, type"),
         supabase.from("day_notes").select("day, note").eq("user_id", userId),
         supabase.from("tasks").select("*").eq("team_id", teamId),
         supabase.from("task_updates").select("*").order("created_at", { ascending: true }),
-        supabase.from("invites").select("email, created_at").eq("team_id", teamId),
-        supabase.from("invite_links")
-          .select("token, label, expires_at, used_at")
-          .eq("team_id", teamId).is("used_at", null)
-          .order("created_at", { ascending: false }),
       ]);
-      // invite_links arrives with a later migration; a missing table must not
-      // take the whole board down with it
-      for (const r of [members, marks, notes, tasks, updates, invites]) if (r.error) throw r.error;
+      for (const r of [members, marks, notes, tasks, updates]) if (r.error) throw r.error;
 
       const teamDays = {};
       const days = {};
@@ -129,8 +120,6 @@ export function useBackend(session) {
         members: members.data
           .filter((r) => r.profiles)
           .map((r) => ({ id: r.profiles.id, name: r.profiles.name, initials: r.profiles.initials, role: r.role })),
-        invites: invites.data.map((r) => r.email),
-        inviteLinks: (links.error ? [] : links.data).filter((r) => new Date(r.expires_at) > new Date()),
         days,
         teamDays,
         tasks: tasks.data.map((row) => rowToTask(row, byTask[row.id])),
@@ -276,45 +265,6 @@ export function useBackend(session) {
       }));
       const { error } = await supabase.from("profiles")
         .update({ name: trimmed, initials }).eq("id", userId);
-      fail(error);
-    },
-
-    // A link anyone can be sent, good for one person, then spent.
-    async createInviteLink(label) {
-      const { data, error } = await supabase.rpc("create_invite_link", {
-        p_label: (label || "").trim(), p_days: 7,
-      });
-      if (error) {
-        const missing = error.code === "PGRST202"
-          || /could not find the function|does not exist|schema cache/i.test(error.message || "");
-        fail(missing
-          ? { message: "קישורי הזמנה עוד לא מותקנים במסד הנתונים — צריך להריץ את migration 0005_invite_links." }
-          : error);
-        return null;
-      }
-      await load();
-      return data;
-    },
-
-    async revokeInviteLink(token) {
-      setState((s) => ({ ...s, inviteLinks: s.inviteLinks.filter((l) => l.token !== token) }));
-      const { error } = await supabase.from("invite_links").delete().eq("token", token);
-      fail(error);
-    },
-
-    // An address left here becomes a membership the moment that person signs in.
-    async invite(email) {
-      const address = email.trim().toLowerCase();
-      if (!address) return;
-      const { error } = await supabase.from("invites")
-        .insert({ email: address, team_id: state.teamId, invited_by: userId });
-      if (error) return fail(error);
-      setState((s) => ({ ...s, invites: [...s.invites, address] }));
-    },
-
-    async revokeInvite(email) {
-      setState((s) => ({ ...s, invites: s.invites.filter((e) => e !== email) }));
-      const { error } = await supabase.from("invites").delete().eq("email", email);
       fail(error);
     },
 

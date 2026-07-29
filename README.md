@@ -138,46 +138,51 @@ screen and nothing else.
 Supabase project **FeyApps** (`puijleicxiiumkbbeect`, eu-west-1). Schema lives in
 `supabase/migrations/` and is already applied.
 
-Sign-in offers a **password** or a **six-digit code by email**, and it is
-invite-only:
-`invites` holds addresses, and the first time one of them signs in a trigger
-creates their profile and joins them to the team. Invite from the collapsed
-panel below the account bar — adding someone happens rarely, so it does not sit
-inside a view used daily.
+Sign-in offers a **password**, a **six-digit code by email**, or **Google**.
 
-A one-time **invite link** is the other way in. The token is minted server-side,
-is good for a single person, expires in a week, and is redeemed by a function
-rather than by reading the table, so the link cannot be guessed or enumerated.
-Redemption claims the row and the membership in one update, so a shared link
-cannot admit two people however fast they both click. Someone already on a team
-who opens a link does not spend it — otherwise testing your own link would hand
-the newcomer a dead one.
+Access is no longer gated inside the app. It used to be — an `invites` table
+plus a UI to add addresses and mint one-time links — but with Google sign-in
+restricted to a Testing-mode allow-list in Google Cloud Console (Google Cloud
+Console → OAuth consent screen → test users), that gate moved outside the app
+entirely, so the in-app invite panel was removed rather than left as a second,
+redundant gate.
 
-That trigger names you after your email address, so the account bar under the
+**This leaves a real gap worth knowing about.** Google Console decides who can
+*authenticate* with Google; it says nothing about who becomes a *team member*
+once they do. The trigger that used to auto-join a new sign-in only fires when
+the address matches a row in `invites` — and nothing in the app writes to that
+table anymore. A newly Google-authenticated person still lands on "not on a
+team yet" with no self-service way out. Getting them the rest of the way in
+means either inserting a row into `team_members` by hand in the Supabase SQL
+editor, or merging the separate owner-created-account PR, which creates a
+password-based account directly rather than working with an existing Google
+sign-in. Neither is wired into the app UI right now.
+
+Password and code sign-up remain open to anyone who reaches the sign-in
+screen — Google Console's allow-list only applies to the Google button. The
+same "not on a team yet" screen is what stops that from mattering: an account
+with no `team_members` row can authenticate but reaches nothing.
+
+A signup names you after your email address, so the account bar under the
 calendar lets you fix it. Initials follow the name rather than being set
 separately — they exist only to fill an avatar.
 
-Password is the default, because it costs no email at all — the built-in sender
-allows two an hour, which is not enough to onboard a team. An account made with
-a code has no password until the account bar gives it one.
+Password is the default sign-in tab, because it costs no email at all — the
+built-in sender allows two an hour, which is not enough to onboard a team by
+code alone. An account made with a code has no password until the account bar
+gives it one.
 
-The code replaced a magic link deliberately. A link is single-use, so it dies
-when a mail scanner prefetches it, when a newer one supersedes it, or when the
-page is reloaded — all of which read to the person signing in as "expired". A
-code has no URL to prefetch and no redirect to keep in an allow-list, which is
-also why renaming the repository can no longer break sign-in.
+The code option replaced what used to be a magic link. A link is single-use,
+so it dies when a mail scanner prefetches it, when a newer one supersedes it,
+or when the page is reloaded — all of which read to the person signing in as
+"expired". A code has no URL to prefetch and no redirect to keep in an
+allow-list, which is also why renaming the repository can no longer break
+sign-in.
 
-**Onboarding costs zero emails**: send an invite link, they set a password, they
-are in. Without the link that would be two — an invite and a login code — and
-the hourly cap makes two people at once impossible.
-
-Google sign-in is on. It needed setup nobody else could do — an OAuth client
-in the Google Cloud console, its ID and secret pasted into the Supabase
-dashboard — and once that existed, flipping `GOOGLE_ENABLED` in
-`src/SignIn.tsx` was the entire code change. It goes through the same
-invite-only gate as everything else: an unrecognised Google account lands on
-the "not on a team yet" screen exactly like an unrecognised password
-sign-up.
+Google sign-in needed setup nobody else could do — an OAuth client in the
+Google Cloud console, its ID and secret pasted into the Supabase dashboard —
+and once that existed, flipping `GOOGLE_ENABLED` in `src/SignIn.tsx` was the
+entire code change.
 
 ### The privacy rule is enforced in the database
 
