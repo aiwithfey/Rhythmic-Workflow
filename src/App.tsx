@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import RhythmCalendar from "./RhythmCalendar";
 import SignIn from "./SignIn";
+import AccountBar from "./AccountBar";
 import { supabase, isLive } from "./supabase";
 import { useBackend } from "./backend";
 
@@ -40,16 +41,17 @@ function LiveApp({ session }) {
     );
   }
 
+  const profile = backend.members.find((m) => m.id === backend.me) || null;
+
   return (
     <>
       <RhythmCalendar backend={backend} />
-      <div style={{
-        direction: "rtl", fontFamily: BODY, textAlign: "center",
-        padding: "0 14px 26px", background: C.creamDeep,
-      }}>
-        <span style={{ fontSize: 11.5, color: C.inkSoft }}>{session.user.email}</span>
-        <button onClick={() => supabase.auth.signOut()} style={{ ...signOutBtn, marginTop: 6 }}>יציאה</button>
-      </div>
+      <AccountBar
+        profile={profile}
+        email={session.user.email}
+        onRename={backend.actions.setMyName}
+        onSignOut={() => supabase.auth.signOut()}
+      />
     </>
   );
 }

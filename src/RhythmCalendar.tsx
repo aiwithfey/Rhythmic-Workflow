@@ -792,6 +792,70 @@ export default function RhythmCalendar({ backend = null }) {
     setOpenTicketId(t.id);
   }
 
+  /**
+   * Fill the month up to the protected minimum without asking you to pick days.
+   *
+   * Weekend first, because that is where rest already lives. After that, spread:
+   * each further day is the one furthest from every rest day already chosen, so
+   * you get gaps between them rather than a block at the end of the month.
+   * Days that already carry work are avoided while there is any alternative,
+   * and days that have passed are never chosen.
+   */
+  function autofillRest() {
+    const missing = minRest - restCount;
+    if (missing <= 0) return;
+
+    const isThisMonth = y === today.getFullYear() && m === today.getMonth();
+    const firstOpen = isThisMonth ? today.getDate() : 1;
+
+    const chosen = [];
+    const rest = [];
+    const free = [];
+    for (let d = 1; d <= total; d++) {
+      const k = keyOf(y, m, d);
+      if ((days[k] || { type: "open" }).type === "rest") { rest.push(d); continue; }
+      if (d < firstOpen) continue;
+      free.push({ d, k, dow: new Date(y, m, d).getDay(), busy: (dayIndex[k] || []).length > 0 });
+    }
+
+    const take = (day) => {
+      chosen.push(day);
+      rest.push(day.d);
+      free.splice(free.indexOf(day), 1);
+    };
+
+    // ש׳ then ו׳ — the days a week already leaves free
+    for (const dow of [6, 5]) {
+      for (const day of free.filter((x) => x.dow === dow && !x.busy)) {
+        if (chosen.length >= missing) break;
+        take(day);
+      }
+    }
+
+    // then whatever sits furthest from the rest days so far
+    while (chosen.length < missing && free.length) {
+      const gapOf = (day) => rest.length
+        ? Math.min(...rest.map((r) => Math.abs(r - day.d)))
+        : total;
+      let best = null, bestScore = -Infinity;
+      for (const day of free) {
+        // a busy day is a last resort, never a preference
+        const score = gapOf(day) - (day.busy ? 100 : 0);
+        if (score > bestScore) { bestScore = score; best = day; }
+      }
+      take(best);
+    }
+
+    if (!chosen.length) return;
+    const keys = chosen.map((x) => x.k);
+    if (live) return live.actions.setManyDayTypes(keys, "rest");
+    setDays((prev) => {
+      const next = { ...prev };
+      for (const k of keys) next[k] = { type: "rest", note: next[k]?.note || "" };
+      return next;
+    });
+  }
+
   // Coming off the board, a task has to land on a day — a private task with no
   // date belongs to no view at all. Undated tickets come back to today, and we
   // open that day so it is never a question where the task went.
@@ -1106,7 +1170,18 @@ export default function RhythmCalendar({ backend = null }) {
                   ? <>את מתחת למינימום המומלץ — <b>{restCount}</b> מתוך <b>{minRest}</b>. בחרי עוד יום מנוחה לשמירה על האיזון.</>
                   : <>ימי מנוחה החודש: <b>{restCount}</b> · מינימום מוגן: <b>{minRest}</b></>}
               </span>
-              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                {restCount < minRest && (
+                  <button
+                    onClick={autofillRest}
+                    title="בוחרת עבורך ימי מנוחה פנויים, סופ״ש קודם"
+                    style={{
+                      background: C.lilac, color: "#fff", border: "none", borderRadius: 999,
+                      padding: "5px 11px", fontSize: 11.5, fontWeight: 700,
+                      cursor: "pointer", fontFamily: DISPLAY, whiteSpace: "nowrap",
+                    }}
+                  >מלאי עבורי</button>
+                )}
                 <button onClick={() => setMinRest((v) => Math.max(1, v - 1))} style={miniBtn}>−</button>
                 <button onClick={() => setMinRest((v) => Math.min(20, v + 1))} style={miniBtn}>+</button>
               </div>

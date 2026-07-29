@@ -60,6 +60,12 @@ Anyone can build a kanban. What this one knows is *the energy each day holds*.
   *מתוזמן ליום מנוחה מוגן*.
 - **Rest days are not bookable.** A ticket opened from a rest day goes to the
   backlog without a date instead of eating the day.
+- **Rest days can fill themselves.** Below the monthly minimum, **מלאי עבורי**
+  picks the missing days: weekend first, then whichever day sits furthest from
+  the rest days already chosen, so they spread instead of clumping. Days that
+  already carry work are a last resort, and days that have passed are never
+  chosen — so late in a month it fills what it can and says you are still short
+  rather than pretending otherwise.
 - **Days carry their tasks.** Drag a day to a new date in your calendar and its
   tasks travel with it.
 - **Team load, in rhythm terms.** The board shows each person's open ticket count
@@ -127,6 +133,10 @@ Supabase project **FeyApps** (`puijleicxiiumkbbeect`, eu-west-1). Schema lives i
 Sign-in is a magic link — an email with a link, no passwords. It is invite-only:
 `invites` holds addresses, and the first time one of them signs in a trigger
 creates their profile and joins them to the team. Invite from **לוח הצוות**.
+
+That trigger names you after your email address, so the account bar under the
+calendar lets you fix it. Initials follow the name rather than being set
+separately — they exist only to fill an avatar.
 
 Google sign-in is written and one flag away: configure the Google provider in the
 Supabase dashboard, then flip `GOOGLE_ENABLED` in `src/SignIn.tsx`.

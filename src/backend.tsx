@@ -220,6 +220,25 @@ export function useBackend(session) {
       fail(error);
     },
 
+    // Filling a month's rest days is one intent, so it is one write.
+    async setManyDayTypes(dateKeys, type) {
+      if (!dateKeys.length) return;
+      setState((s) => {
+        const days = { ...s.days };
+        const mine = { ...(s.teamDays[userId] || {}) };
+        for (const k of dateKeys) {
+          days[k] = { type, note: days[k]?.note || "" };
+          mine[k] = type;
+        }
+        return { ...s, days, teamDays: { ...s.teamDays, [userId]: mine } };
+      });
+      const { error } = await supabase.from("day_marks").upsert(
+        dateKeys.map((k) => ({ user_id: userId, day: keyToDate(k), type })),
+        { onConflict: "user_id,day" }
+      );
+      fail(error);
+    },
+
     async setDayNote(dateKey, note) {
       setState((s) => ({
         ...s,
@@ -227,6 +246,22 @@ export function useBackend(session) {
       }));
       const { error } = await supabase.from("day_notes")
         .upsert({ user_id: userId, day: keyToDate(dateKey), note }, { onConflict: "user_id,day" });
+      fail(error);
+    },
+
+    // Sign-up derives a name from the email local part, which is nobody's
+    // actual name. Initials follow the name rather than being set separately —
+    // they only exist to fill an avatar.
+    async setMyName(name) {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const initials = [...trimmed][0] + ([...trimmed][1] || "");
+      setState((s) => ({
+        ...s,
+        members: s.members.map((m) => (m.id === userId ? { ...m, name: trimmed, initials } : m)),
+      }));
+      const { error } = await supabase.from("profiles")
+        .update({ name: trimmed, initials }).eq("id", userId);
       fail(error);
     },
 
