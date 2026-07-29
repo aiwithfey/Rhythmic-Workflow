@@ -143,7 +143,19 @@ creates their profile and joins them to the team. Invite from the collapsed
 panel below the account bar — adding someone happens rarely, so it does not sit
 inside a view used daily.
 
-A one-time **invite link** is the other way in. The token is minted server-side,
+An **owner** can also open a teammate's account directly — set an email and a
+temporary password, hand it to them, and they are in immediately with no email
+at all. That needs the service-role key, which can never sit in a public
+bundle, so it runs as a Supabase edge function
+(`supabase/functions/admin-create-user`) that re-checks the caller's role
+itself rather than trusting the client. Deploy it with
+`supabase functions deploy admin-create-user` and it needs no secrets set by
+hand — Supabase provides the service-role key to the function automatically.
+`0006_owner_role.sql` makes `feypelleg@gmail.com` the first owner.
+
+A one-time **invite link** is the other way in, for anyone who is not an
+owner, or when handing someone a password directly is not how you want to do
+it. The token is minted server-side,
 is good for a single person, expires in a week, and is redeemed by a function
 rather than by reading the table, so the link cannot be guessed or enumerated.
 Redemption claims the row and the membership in one update, so a shared link
