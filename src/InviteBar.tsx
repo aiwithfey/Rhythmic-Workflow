@@ -26,7 +26,8 @@ function daysLeft(iso) {
  * sender allows two an hour.
  */
 export default function InviteBar({
-  invites, links = [], onInvite, onRevoke, onCreateLink, onRevokeLink,
+  invites, links = [], isOwner = false,
+  onInvite, onRevoke, onCreateLink, onRevokeLink, onCreateUser,
 }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -34,6 +35,20 @@ export default function InviteBar({
   const [minting, setMinting] = useState(false);
   const [copied, setCopied] = useState("");
   const [failed, setFailed] = useState(false);
+  const [nu, setNu] = useState({ name: "", email: "", password: "" });
+  const [nuState, setNuState] = useState("idle"); // idle | saving | done
+  const [nuError, setNuError] = useState("");
+
+  async function createUser() {
+    if (!nu.email || nu.password.length < 6) {
+      setNuError("צריך אימייל וסיסמה של 6 תווים לפחות."); return;
+    }
+    setNuState("saving"); setNuError("");
+    const problem = await onCreateUser(nu);
+    setNuState(problem ? "idle" : "done");
+    if (problem) { setNuError(problem); return; }
+    setNu({ name: "", email: "", password: "" });
+  }
 
   const pending = invites.length + links.length;
 
@@ -146,12 +161,55 @@ export default function InviteBar({
               </div>
             )}
 
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              margin: "14px 0 10px", color: C.mute, fontSize: 11,
-            }}>
+            {isOwner && (
+              <>
+                <div style={dividerRow}>
+                  <span style={{ flex: 1, height: 1, background: C.line }} />
+                  <span>או פתחי לה חשבון עכשיו</span>
+                  <span style={{ flex: 1, height: 1, background: C.line }} />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <input value={nu.name} onChange={(e) => setNu({ ...nu, name: e.target.value })}
+                    placeholder="שם (לא חובה)" style={inputStyle} />
+                  <input type="email" value={nu.email} autoComplete="off"
+                    onChange={(e) => setNu({ ...nu, email: e.target.value })}
+                    placeholder="אימייל" style={{ ...inputStyle, direction: "ltr", textAlign: "right" }} />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input type="text" value={nu.password} autoComplete="off"
+                      onChange={(e) => setNu({ ...nu, password: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === "Enter") createUser(); }}
+                      placeholder="סיסמה זמנית (6 תווים לפחות)"
+                      style={{ ...inputStyle, direction: "ltr", textAlign: "right" }} />
+                    <button onClick={createUser} disabled={nuState === "saving"} style={{
+                      background: C.ink, color: "#fff", border: "none", borderRadius: 10,
+                      padding: "0 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                      fontFamily: DISPLAY, whiteSpace: "nowrap", opacity: nuState === "saving" ? 0.6 : 1,
+                    }}>{nuState === "saving" ? "פותחת..." : "פתחי חשבון"}</button>
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: C.mute, marginTop: 6, lineHeight: 1.6 }}>
+                  היא נכנסת מיד עם האימייל והסיסמה האלה, בלי שום מייל. מסרי לה אותם, והיא תחליף סיסמה
+                  בעצמה מהאזור האישי.
+                </div>
+                {nuState === "done" && (
+                  <div style={{
+                    marginTop: 8, background: C.sageSoft, color: C.sage, borderRadius: 10,
+                    padding: "8px 10px", fontSize: 11.5, fontWeight: 700,
+                  }}>✓ החשבון נפתח והיא כבר בצוות</div>
+                )}
+                {nuError && (
+                  <div style={{
+                    marginTop: 8, background: "#F7E3E0", color: "#C0574F", borderRadius: 10,
+                    padding: "8px 10px", fontSize: 11.5, lineHeight: 1.6,
+                  }}>{nuError}</div>
+                )}
+              </>
+            )}
+
+            <div style={dividerRow}>
               <span style={{ flex: 1, height: 1, background: C.line }} />
-              <span>או לפי כתובת מייל</span>
+              <span>או הזמנה לפי כתובת מייל</span>
               <span style={{ flex: 1, height: 1, background: C.line }} />
             </div>
 
@@ -194,6 +252,10 @@ export default function InviteBar({
   );
 }
 
+const dividerRow = {
+  display: "flex", alignItems: "center", gap: 8,
+  margin: "14px 0 10px", color: C.mute, fontSize: 11,
+};
 const inputStyle = {
   flex: 1, minWidth: 0, borderRadius: 10, border: `1px solid ${C.line}`,
   padding: "8px 10px", fontSize: 13, fontFamily: BODY,

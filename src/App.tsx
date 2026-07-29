@@ -126,6 +126,8 @@ function LiveApp({ session }) {
         onRevoke={backend.actions.revokeInvite}
         onCreateLink={backend.actions.createInviteLink}
         onRevokeLink={backend.actions.revokeInviteLink}
+        isOwner={backend.isOwner}
+        onCreateUser={backend.actions.adminCreateUser}
       />
     </>
   );
