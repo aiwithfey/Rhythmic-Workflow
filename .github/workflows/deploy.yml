@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  pages: write        # also lets configure-pages enable Pages on first run
+  pages: write
   id-token: write
 
 # A queued deploy should replace an in-flight one, not fight it.
@@ -21,12 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Turns Pages on for the repository if it is not already, so the deploy
-      # does not depend on someone having found the right settings screen.
-      # Without this the deploy step fails instantly with nothing built wrong.
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      # No configure-pages step here on purpose. Enabling Pages for the first
+      # time is not something the workflow token can do — it returns "Resource
+      # not accessible by integration" regardless of declared permissions — and
+      # attempting it only fails the build before anything is even built.
+      # Pages has to be switched on once under Settings → Pages → Source.
 
       - uses: actions/setup-node@v4
         with:
