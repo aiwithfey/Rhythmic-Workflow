@@ -231,8 +231,13 @@ function seedTasks(y, m) {
 // Small shared pieces
 // ============================================================
 
+// Who the team is depends on the backend, so it travels by context rather than
+// being read off a module constant.
+const MembersContext = React.createContext(MEMBERS);
+const useMembers = () => React.useContext(MembersContext);
+
 function Avatar({ id, size = 22 }) {
-  const mem = memberById(id);
+  const mem = useMembers().find((x) => x.id === id) || null;
   return (
     <span style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
@@ -324,16 +329,17 @@ function TicketCard({ t, warn, onOpen, onDragStart, dragging }) {
   );
 }
 
-function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar, onUnpublish }) {
+function TicketModal({ task, warn, me, onPatch, onDelete, onClose, onShowInCalendar, onUnpublish, onAddUpdate }) {
   const [draft, setDraft] = useState("");
+  const members = useMembers();
   if (!task) return null;
-  const owner = memberById(task.ownerId);
+  const owner = members.find((x) => x.id === task.ownerId) || null;
   const tint = NEED_TINT[task.energy];
 
   function addUpdate() {
     const text = draft.trim();
     if (!text) return;
-    onPatch(task.id, { updates: [...task.updates, { id: nid(), who: ME, text, when: "עכשיו" }] });
+    onAddUpdate(task.id, text);
     setDraft("");
   }
 
@@ -392,19 +398,19 @@ function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar,
               style={{ ...pillBtn, background: !owner ? C.ink : "#F2EDE3", color: !owner ? "#fff" : C.inkSoft, border: `1px solid ${C.line}` }}>
               לא משויך
             </button>
-            {MEMBERS.map((mem) => {
+            {members.map((mem) => {
               const active = task.ownerId === mem.id;
               return (
                 <button key={mem.id} onClick={() => onPatch(task.id, { ownerId: mem.id })}
                   style={{ ...pillBtn, background: active ? C.magentaSoft : "#F2EDE3", color: active ? C.ink : C.inkSoft,
                     border: active ? `1px solid ${C.magenta}` : `1px solid ${C.line}` }}>
-                  {mem.name}{mem.id === ME ? " (את)" : ""}
+                  {mem.name}{mem.id === me ? " (את)" : ""}
                 </button>
               );
             })}
           </div>
           {!owner && (
-            <button onClick={() => onPatch(task.id, { ownerId: ME })}
+            <button onClick={() => onPatch(task.id, { ownerId: me })}
               style={{ ...primaryBtn, marginTop: 8, background: C.magenta }}>אני לוקחת את זה</button>
           )}
         </Section>
@@ -496,7 +502,7 @@ function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar,
         <div style={{ marginTop: 16, borderTop: `1px solid ${C.line}`, paddingTop: 12 }}>
           <div style={{ display: "flex", gap: 8 }}>
             {/* only your own ticket can become your private note */}
-            {task.ownerId === ME && (
+            {task.ownerId === me && (
               <button onClick={() => onUnpublish(task)}
                 style={{ ...pillBtn, background: "#F2EDE3", color: C.inkSoft, border: `1px solid ${C.line}` }}>
                 🔒 החזירי לפרטי
@@ -507,7 +513,7 @@ function TicketModal({ task, warn, onPatch, onDelete, onClose, onShowInCalendar,
               מחקי
             </button>
           </div>
-          {task.ownerId === ME && (
+          {task.ownerId === me && (
             <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
               יורדת מלוח הצוות וחוזרת אלייך ל<b>{prettyDate(task.dateKey || todayKey())}</b> באזור שלי.
             </div>
@@ -593,25 +599,37 @@ function Section({ title, children }) {
 // Main
 // ============================================================
 
-export default function RhythmCalendar() {
+/**
+ * Runs on seed data by default, so the design can be worked on with no network
+ * and no account. Pass `backend` (see useBackend) and the same screens run on
+ * Postgres instead — every read and write routes through `live` below.
+ */
+export default function RhythmCalendar({ backend = null }) {
+  const live = backend;
   const today = new Date();
   const [mode, setMode] = useState("personal"); // 'personal' | 'team' | 'board'
   const [y, setY] = useState(today.getFullYear());
   const [m, setM] = useState(today.getMonth());
-  const [days, setDays] = useState(() => seedMonth(today.getFullYear(), today.getMonth()));
-  const [tasks, setTasks] = useState(() => seedTasks(today.getFullYear(), today.getMonth()));
+  const [mockDays, setDays] = useState(() => (backend ? {} : seedMonth(today.getFullYear(), today.getMonth())));
+  const [mockTasks, setTasks] = useState(() => (backend ? [] : seedTasks(today.getFullYear(), today.getMonth())));
+
+  const days = live ? live.days : mockDays;
+  const tasks = live ? live.tasks : mockTasks;
+  const members = live ? live.members : MEMBERS;
+  const me = live ? live.me : ME;
   const [selected, setSelected] = useState(null);
   const [teamSelected, setTeamSelected] = useState(null);
   const [openTicketId, setOpenTicketId] = useState(null);
   const [newTaskText, setNewTaskText] = useState("");
   const [newTaskShared, setNewTaskShared] = useState(false);
   const [newCardText, setNewCardText] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [dragKey, setDragKey] = useState(null);
   const [dragTicketId, setDragTicketId] = useState(null);
   const [minRest, setMinRest] = useState(6);
 
   const [energyFilter, setEnergyFilter] = useState(() => new Set(ORDER));
-  const [memberFilter, setMemberFilter] = useState(() => new Set(MEMBERS.map((x) => x.id)));
+  const [memberFilter, setMemberFilter] = useState(() => new Set(members.map((x) => x.id)));
   const [scope, setScope] = useState("team"); // board: 'mine' | 'team'
   const [q, setQ] = useState("");
   const [personalView, setPersonalView] = useState("calendar"); // 'calendar' | 'list'
@@ -630,6 +648,11 @@ export default function RhythmCalendar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [openTicketId, selected, teamSelected]);
 
+  const memberIds = members.map((x) => x.id).join(",");
+  useEffect(() => {
+    setMemberFilter(new Set(memberIds ? memberIds.split(",") : []));
+  }, [memberIds]);
+
   const total = daysInMonth(y, m);
   const lead = firstDow(y, m);
   const cells = useMemo(() => {
@@ -646,6 +669,7 @@ export default function RhythmCalendar() {
   );
 
   function ensureMonth(ny, nm) {
+    if (live) return; // stored days are whatever was actually marked
     setDays((prev) => {
       const hasAny = Object.keys(prev).some((k) => k.startsWith(`${ny}-${nm}-`));
       if (hasAny) return prev;
@@ -688,18 +712,21 @@ export default function RhythmCalendar() {
 
   function setDayType(d, type) {
     const k = keyOf(y, m, d);
+    if (live) return live.actions.setDayType(k, type);
     const cur = days[k] || { type: "open", note: "" };
     setDays((prev) => ({ ...prev, [k]: { ...cur, type } }));
   }
 
   function setDayNote(d, note) {
     const k = keyOf(y, m, d);
+    if (live) return live.actions.setDayNote(k, note);
     const cur = days[k] || { type: "open", note: "" };
     setDays((prev) => ({ ...prev, [k]: { ...cur, note } }));
   }
 
   // ---- task helpers ----
   function patchTask(id, patch) {
+    if (live) return live.actions.patchTask(id, patch);
     setTasks((prev) => prev.map((t) => {
       if (t.id !== id) return t;
       const next = { ...t, ...patch };
@@ -708,7 +735,17 @@ export default function RhythmCalendar() {
       return next;
     }));
   }
-  function removeTask(id) { setTasks((prev) => prev.filter((t) => t.id !== id)); }
+  function removeTask(id) {
+    if (live) return live.actions.removeTask(id);
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function addUpdate(taskId, text) {
+    if (live) return live.actions.addUpdate(taskId, text);
+    setTasks((prev) => prev.map((t) => t.id !== taskId ? t : {
+      ...t, updates: [...t.updates, { id: nid(), who: me, text, when: "עכשיו" }],
+    }));
+  }
 
   function addDayTask(d, text, shared) {
     const trimmed = text.trim();
@@ -716,27 +753,29 @@ export default function RhythmCalendar() {
     const k = keyOf(y, m, d);
     const dayType = (days[k] || { type: "open" }).type;
     const restDay = dayType === "rest";
-    setTasks((prev) => [...prev, {
-      id: nid(), text: trimmed, done: false,
+    const fields = {
+      text: trimmed, done: false,
       ticket: shared,
       // a ticket born on a protected rest day goes to the backlog instead of booking the day
       status: shared ? (restDay ? "backlog" : "planned") : "planned",
-      ownerId: ME,
+      ownerId: me,
       dateKey: shared && restDay ? null : k,
       energy: dayType === "rest" ? "open" : dayType,
-      blocked: false, blockedNote: "", updates: [],
-    }]);
+    };
+    if (live) return live.actions.createTask(fields);
+    setTasks((prev) => [...prev, { id: nid(), blocked: false, blockedNote: "", updates: [], ...fields }]);
   }
 
   function addBoardCard(text) {
     const trimmed = text.trim();
     if (!trimmed) return;
-    setTasks((prev) => [...prev, {
-      id: nid(), text: trimmed, done: false, ticket: true, status: "backlog",
-      ownerId: scope === "mine" ? ME : null, dateKey: null, energy: "open",
-      blocked: false, blockedNote: "", updates: [],
-    }]);
+    const fields = {
+      text: trimmed, done: false, ticket: true, status: "backlog",
+      ownerId: scope === "mine" ? me : null, dateKey: null, energy: "open",
+    };
     setNewCardText("");
+    if (live) return live.actions.createTask(fields);
+    setTasks((prev) => [...prev, { id: nid(), blocked: false, blockedNote: "", updates: [], ...fields }]);
   }
 
   // publish a private note as a team ticket
@@ -759,7 +798,7 @@ export default function RhythmCalendar() {
   function unpublishTask(t) {
     const target = t.dateKey || todayKey();
     const p = parseKey(target);
-    patchTask(t.id, { ticket: false, ownerId: ME, dateKey: target });
+    patchTask(t.id, { ticket: false, ownerId: me, dateKey: target });
     ensureMonth(p.y, p.m);
     setY(p.y); setM(p.m);
     setOpenTicketId(null);
@@ -771,6 +810,7 @@ export default function RhythmCalendar() {
     if (dragKey == null || dragKey === targetD) { setDragKey(null); return; }
     const kFrom = keyOf(y, m, dragKey);
     const kTo = keyOf(y, m, targetD);
+    if (live) { live.actions.swapDays(kFrom, kTo); setDragKey(null); return; }
     setDays((prev) => {
       const a = prev[kFrom] || { type: "open", note: "" };
       const b = prev[kTo] || { type: "open", note: "" };
@@ -778,7 +818,7 @@ export default function RhythmCalendar() {
     });
     // the tasks travel with the day
     setTasks((prev) => prev.map((t) => {
-      if (t.ownerId !== ME) return t;
+      if (t.ownerId !== me) return t;
       if (t.dateKey === kFrom) return { ...t, dateKey: kTo };
       if (t.dateKey === kTo) return { ...t, dateKey: kFrom };
       return t;
@@ -798,10 +838,13 @@ export default function RhythmCalendar() {
   function energyOn(memberId, dateKey) {
     const p = parseKey(dateKey);
     if (!p || !memberId) return null;
-    if (memberId === ME) {
+    if (memberId === me) {
       const rec = days[dateKey];
-      return rec ? rec.type : null;
+      return rec ? rec.type : live ? "open" : null;
     }
+    // live: whatever they actually marked, and an unmarked day is flexible.
+    // mock: a deterministic stand-in so the team view has something to show.
+    if (live) return live.teamDays?.[memberId]?.[dateKey] || "open";
     const idx = MEMBERS.findIndex((x) => x.id === memberId);
     if (idx < 0) return null;
     return memberTypeFor(p.y, p.m, p.d, idx);
@@ -821,7 +864,7 @@ export default function RhythmCalendar() {
   const selKey = selected ? keyOf(y, m, selected) : null;
   const selData = selKey ? days[selKey] || { type: "open", note: "" } : null;
   const selTasks = useMemo(
-    () => (selKey ? tasks.filter((t) => t.ownerId === ME && t.dateKey === selKey) : []),
+    () => (selKey ? tasks.filter((t) => t.ownerId === me && t.dateKey === selKey) : []),
     [tasks, selKey]
   );
 
@@ -829,7 +872,7 @@ export default function RhythmCalendar() {
   const dayIndex = useMemo(() => {
     const idx = {};
     tasks.forEach((t) => {
-      if (t.ownerId !== ME || !t.dateKey || t.done) return;
+      if (t.ownerId !== me || !t.dateKey || t.done) return;
       (idx[t.dateKey] = idx[t.dateKey] || []).push(t);
     });
     return idx;
@@ -858,7 +901,7 @@ export default function RhythmCalendar() {
     const keys = listRange === "week"
       ? weekKeys
       : Array.from({ length: total }, (_, i) => keyOf(y, m, i + 1));
-    const mine = tasks.filter((t) => t.ownerId === ME);
+    const mine = tasks.filter((t) => t.ownerId === me);
     const groups = keys
       .map((k) => ({ k, items: mine.filter((t) => t.dateKey === k) }))
       .filter((g) => g.items.length > 0);
@@ -874,13 +917,9 @@ export default function RhythmCalendar() {
 
   // team marks for a given day, filtered. my own row comes from my real calendar.
   function teamMarksFor(d) {
-    return MEMBERS
-      .map((mem, idx) => ({
-        mem,
-        type: mem.id === ME
-          ? ((days[keyOf(y, m, d)] || { type: "open" }).type)
-          : memberTypeFor(y, m, d, idx),
-      }))
+    const k = keyOf(y, m, d);
+    return members
+      .map((mem) => ({ mem, type: energyOn(mem.id, k) || "open" }))
       .filter((x) => memberFilter.has(x.mem.id) && energyFilter.has(x.type));
   }
 
@@ -893,7 +932,7 @@ export default function RhythmCalendar() {
     const needle = q.trim();
     return tasks.filter((t) => {
       if (!t.ticket) return false;
-      if (scope === "mine" && t.ownerId !== ME) return false;
+      if (scope === "mine" && t.ownerId !== me) return false;
       if (scope === "team" && t.ownerId && !memberFilter.has(t.ownerId)) return false;
       if (!energyFilter.has(t.energy)) return false;
       if (needle && !t.text.includes(needle)) return false;
@@ -902,22 +941,18 @@ export default function RhythmCalendar() {
   }, [tasks, scope, memberFilter, energyFilter, q]);
 
   const myDoing = useMemo(
-    () => tasks.filter((t) => t.ticket && t.ownerId === ME && t.status === "doing").length,
+    () => tasks.filter((t) => t.ticket && t.ownerId === me && t.status === "doing").length,
     [tasks]
   );
 
-  const teamLoad = useMemo(() => MEMBERS.filter((mem) => memberFilter.has(mem.id)).map((mem, i) => {
-    const idx = MEMBERS.findIndex((x) => x.id === mem.id);
+  const teamLoad = useMemo(() => members.filter((mem) => memberFilter.has(mem.id)).map((mem) => {
     const open = tasks.filter((t) => t.ticket && t.ownerId === mem.id && t.status !== "done").length;
     let rest = 0;
     for (let d = 1; d <= total; d++) {
-      const type = mem.id === ME
-        ? (days[keyOf(y, m, d)] || { type: "open" }).type
-        : memberTypeFor(y, m, d, idx);
-      if (type === "rest") rest++;
+      if (energyOn(mem.id, keyOf(y, m, d)) === "rest") rest++;
     }
     return { mem, open, rest };
-  }), [tasks, memberFilter, days, y, m, total]);
+  }), [tasks, members, memberFilter, days, live && live.teamDays, y, m, total]);
 
   const openTicket = openTicketId ? tasks.find((t) => t.id === openTicketId) || null : null;
 
@@ -927,7 +962,7 @@ export default function RhythmCalendar() {
     ensureMonth(p.y, p.m);
     setY(p.y); setM(p.m);
     setOpenTicketId(null);
-    if (t.ownerId === ME) { setMode("personal"); setSelected(p.d); }
+    if (t.ownerId === me) { setMode("personal"); setSelected(p.d); }
     else { setMode("team"); setTeamSelected(p.d); }
   }
 
@@ -942,6 +977,7 @@ export default function RhythmCalendar() {
   const weekMode = listMode && listRange === "week";
 
   return (
+    <MembersContext.Provider value={members}>
     <div style={{
       direction: "rtl",
       fontFamily: BODY,
@@ -1205,9 +1241,51 @@ export default function RhythmCalendar() {
               })}
             </div>
 
+            {live && (
+              <div style={{ borderBottom: `1px solid ${C.line}`, paddingBottom: 12, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft, marginBottom: 8 }}>
+                  הזמנת חברת צוות
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { live.actions.invite(inviteEmail); setInviteEmail(""); }
+                    }}
+                    placeholder="אימייל להזמנה..."
+                    style={{ ...textInput, direction: "ltr", textAlign: "right" }}
+                  />
+                  <button
+                    onClick={() => { live.actions.invite(inviteEmail); setInviteEmail(""); }}
+                    style={{ ...primaryBtn, background: C.magenta }}
+                  >הזמיני</button>
+                </div>
+                {live.invites.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                    {live.invites.map((email) => (
+                      <span key={email} style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        background: C.cream, border: `1px dashed ${C.mute}`, borderRadius: 999,
+                        padding: "4px 9px", fontSize: 11.5, color: C.inkSoft, direction: "ltr",
+                      }}>
+                        {email}
+                        <button onClick={() => live.actions.revokeInvite(email)}
+                          style={{ background: "none", border: "none", color: C.mute, cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: C.mute, marginTop: 8 }}>
+                  היא תצטרף לצוות אוטומטית בכניסה הראשונה שלה.
+                </div>
+              </div>
+            )}
+
             <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft, marginBottom: 8 }}>סינון לפי חברת צוות</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {MEMBERS.map((mem) => {
+              {members.map((mem) => {
                 const active = memberFilter.has(mem.id);
                 return (
                   <button
@@ -1285,7 +1363,7 @@ export default function RhythmCalendar() {
 
               {scope === "team" && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {MEMBERS.map((mem) => {
+                  {members.map((mem) => {
                     const active = memberFilter.has(mem.id);
                     return (
                       <button key={mem.id} onClick={() => toggleSet(setMemberFilter, mem.id)}
@@ -1790,7 +1868,9 @@ export default function RhythmCalendar() {
         <TicketModal
           task={openTicket}
           warn={openTicket ? mismatchOf(openTicket) : null}
+          me={me}
           onPatch={patchTask}
+          onAddUpdate={addUpdate}
           onDelete={removeTask}
           onClose={() => setOpenTicketId(null)}
           onShowInCalendar={showInCalendar}
@@ -1798,6 +1878,7 @@ export default function RhythmCalendar() {
         />
       </div>
     </div>
+    </MembersContext.Provider>
   );
 }
 

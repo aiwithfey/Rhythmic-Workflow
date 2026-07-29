@@ -7,14 +7,25 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = resolve(root, "dist");
 mkdirSync(dist, { recursive: true });
 
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "";
+const live = Boolean(SUPABASE_URL && SUPABASE_KEY);
+
 const result = await build({
   entryPoints: [resolve(root, "src/main.tsx")],
+  // Without credentials this is the design mockup: swap the client for a stub
+  // so it is not bundled at all.
+  alias: live ? {} : { "@supabase/supabase-js": resolve(root, "src/supabase-stub.ts") },
   bundle: true,
   minify: true,
   format: "iife",
   target: ["es2019"],
   jsx: "automatic",
-  define: { "process.env.NODE_ENV": '"production"' },
+  define: {
+    "process.env.NODE_ENV": '"production"',
+    __SUPABASE_URL__: JSON.stringify(SUPABASE_URL),
+    __SUPABASE_KEY__: JSON.stringify(SUPABASE_KEY),
+  },
   write: false,
   outfile: resolve(dist, "app.js"),
 });
@@ -59,4 +70,7 @@ const page = `<!doctype html>
 `;
 writeFileSync(resolve(dist, "index.html"), page, "utf8");
 
-console.log(`built dist/index.html and dist/artifact.html (${(js.length / 1024).toFixed(0)} kb js)`);
+console.log(
+  `built dist/index.html and dist/artifact.html (${(js.length / 1024).toFixed(0)} kb js) — ` +
+  (live ? `live: ${SUPABASE_URL}` : "mock data, no backend")
+);
