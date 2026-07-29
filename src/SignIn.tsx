@@ -123,8 +123,22 @@ export default function SignIn() {
           גל של תפוקה, חיבור ומנוחה
         </div>
 
-        {/* Password first: it needs no email at all, which matters when the
-            built-in sender allows two an hour. */}
+        {/* Google first: it's the preferred sign-in method. */}
+        {GOOGLE_ENABLED && step === "email" && (
+          <>
+            <button type="button" onClick={signInWithGoogle} style={{
+              width: "100%", background: "#fff", color: C.ink, border: `1px solid ${C.line}`, borderRadius: 12,
+              padding: "11px 0", fontSize: 14, fontWeight: 700, fontFamily: DISPLAY, cursor: "pointer",
+              boxSizing: "border-box",
+            }}>המשיכי עם Google</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.inkSoft, fontSize: 11.5, margin: "14px 0" }}>
+              <span style={{ flex: 1, height: 1, background: C.line }} />
+              <span>או</span>
+              <span style={{ flex: 1, height: 1, background: C.line }} />
+            </div>
+          </>
+        )}
+
         {step === "email" && (
           <div style={{
             display: "flex", background: "#F2EDE3", borderRadius: 999, padding: 3, marginBottom: 14,
@@ -164,20 +178,6 @@ export default function SignIn() {
               style={linkBtn}>
               {creating ? "כבר יש לי חשבון" : "אין לי עדיין חשבון — הרשמה"}
             </button>
-
-            {GOOGLE_ENABLED && (
-              <>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.inkSoft, fontSize: 11.5 }}>
-                  <span style={{ flex: 1, height: 1, background: C.line }} />
-                  <span>או</span>
-                  <span style={{ flex: 1, height: 1, background: C.line }} />
-                </div>
-                <button type="button" onClick={signInWithGoogle} style={{
-                  background: "#fff", color: C.ink, border: `1px solid ${C.line}`, borderRadius: 12,
-                  padding: "11px 0", fontSize: 14, fontWeight: 700, fontFamily: DISPLAY, cursor: "pointer",
-                }}>המשיכי עם Google</button>
-              </>
-            )}
           </form>
         ) : step === "email" ? (
           <form onSubmit={sendCode} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
