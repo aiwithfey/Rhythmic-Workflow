@@ -3,6 +3,7 @@ import React, { useState } from "react";
 const C = {
   cream: "#F6F1E9", creamDeep: "#EFE7D8", ink: "#2E2230", inkSoft: "#6E5C6B",
   line: "#E2D7C6", magenta: "#B23A7E", mute: "#BDB2AE",
+  sage: "#5E8B5A", alert: "#C0574F",
 };
 const DISPLAY = "'Rubik','Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
 const BODY = "'Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
@@ -12,9 +13,22 @@ const BODY = "'Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
  * name. This is where you fix it — and it is the name your teammates see on
  * every card, so it belongs next to the account, not buried in a settings page.
  */
-export default function AccountBar({ profile, email, onRename, onSignOut }) {
+export default function AccountBar({ profile, email, onRename, onSignOut, onSetPassword }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile?.name || "");
+  // An account created with a login code has no password until it is given one.
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pw, setPw] = useState("");
+  const [pwState, setPwState] = useState("idle"); // idle | saving | done | error
+  const [pwError, setPwError] = useState("");
+
+  async function savePassword() {
+    if (pw.length < 6) { setPwState("error"); setPwError("לפחות 6 תווים."); return; }
+    setPwState("saving"); setPwError("");
+    const err = await onSetPassword(pw);
+    if (err) { setPwState("error"); setPwError(err); return; }
+    setPw(""); setPwState("done"); setPwOpen(false);
+  }
 
   function start() {
     setDraft(profile?.name || "");
@@ -34,8 +48,8 @@ export default function AccountBar({ profile, email, onRename, onSignOut }) {
       <div style={{
         maxWidth: 480, margin: "0 auto", background: "#fff", borderRadius: 16,
         padding: 12, boxShadow: "0 2px 10px rgba(46,34,48,0.06)",
-        display: "flex", alignItems: "center", gap: 10,
       }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{
           width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
           background: C.ink, color: "#fff", fontSize: 13, fontWeight: 700,
@@ -91,6 +105,51 @@ export default function AccountBar({ profile, email, onRename, onSignOut }) {
           color: C.inkSoft, fontSize: 11.5, padding: "5px 11px", cursor: "pointer",
           flexShrink: 0, fontFamily: BODY,
         }}>יציאה</button>
+      </div>
+
+      <div style={{ borderTop: `1px solid ${C.line}`, marginTop: 10, paddingTop: 10 }}>
+        {!pwOpen ? (
+          <button onClick={() => { setPwOpen(true); setPwState("idle"); }} style={{
+            background: "none", border: "none", padding: 0, cursor: "pointer",
+            color: pwState === "done" ? C.sage : C.inkSoft, fontSize: 11.5,
+            fontWeight: 700, fontFamily: BODY,
+          }}>
+            {pwState === "done" ? "✓ הסיסמה נשמרה" : "🔑 הגדרת סיסמה לכניסה"}
+          </button>
+        ) : (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <input
+              type="password" value={pw} autoComplete="new-password"
+              onChange={(e) => setPw(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") savePassword(); }}
+              placeholder="סיסמה חדשה"
+              style={{
+                flex: 1, minWidth: 120, borderRadius: 10, border: `1px solid ${C.line}`,
+                padding: "7px 10px", fontSize: 13, fontFamily: BODY,
+                direction: "ltr", textAlign: "right", boxSizing: "border-box",
+                background: C.cream, color: C.ink,
+              }}
+            />
+            <button onClick={savePassword} disabled={pwState === "saving"} style={{
+              background: C.ink, color: "#fff", border: "none", borderRadius: 10,
+              padding: "0 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+              fontFamily: DISPLAY, opacity: pwState === "saving" ? 0.6 : 1,
+            }}>{pwState === "saving" ? "שומרת..." : "שמרי"}</button>
+            <button onClick={() => { setPwOpen(false); setPw(""); setPwError(""); }} style={{
+              background: "none", border: "none", color: C.inkSoft,
+              fontSize: 12, cursor: "pointer", fontFamily: BODY,
+            }}>ביטול</button>
+          </div>
+        )}
+        {pwError && (
+          <div style={{ fontSize: 11.5, color: C.alert, marginTop: 6 }}>{pwError}</div>
+        )}
+        {!pwOpen && pwState !== "done" && (
+          <div style={{ fontSize: 11, color: C.mute, marginTop: 4 }}>
+            כדי להיכנס בלי לחכות לקוד במייל
+          </div>
+        )}
+      </div>
       </div>
     </div>
   );

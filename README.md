@@ -111,7 +111,7 @@ never reach Supabase.
 `.github/workflows/deploy.yml` builds against the database and publishes to
 GitHub Pages on every push to `main`, landing at:
 
-**https://aiwithfey.github.io/Rhythmic-Workflow-/**
+**https://aiwithfey.github.io/Rhythmic-Workflow/**
 
 Two things have to be switched on once, by hand:
 
@@ -121,7 +121,7 @@ Two things have to be switched on once, by hand:
    the Site URL, or as an additional redirect URL. Magic links are refused if
    they point somewhere that is not on that list.
 
-The app is served from `/Rhythmic-Workflow-/`, not the domain root, so sign-in
+The app is served from a repository subpath, not the domain root, so sign-in
 sends `origin + pathname` as the return address rather than `origin` alone —
 otherwise every magic link would come back to the top of `aiwithfey.github.io`
 and miss the app entirely. `dist/index.html` is also published as `404.html`, so
@@ -136,18 +136,43 @@ screen and nothing else.
 Supabase project **FeyApps** (`puijleicxiiumkbbeect`, eu-west-1). Schema lives in
 `supabase/migrations/` and is already applied.
 
-Sign-in is a magic link — an email with a link, no passwords. It is invite-only:
+Sign-in offers a **password** or a **six-digit code by email**, and it is
+invite-only:
 `invites` holds addresses, and the first time one of them signs in a trigger
 creates their profile and joins them to the team. Invite from the collapsed
 panel below the account bar — adding someone happens rarely, so it does not sit
 inside a view used daily.
 
+A one-time **invite link** is the other way in. The token is minted server-side,
+is good for a single person, expires in a week, and is redeemed by a function
+rather than by reading the table, so the link cannot be guessed or enumerated.
+Redemption claims the row and the membership in one update, so a shared link
+cannot admit two people however fast they both click. Someone already on a team
+who opens a link does not spend it — otherwise testing your own link would hand
+the newcomer a dead one.
+
 That trigger names you after your email address, so the account bar under the
 calendar lets you fix it. Initials follow the name rather than being set
 separately — they exist only to fill an avatar.
 
-Google sign-in is written and one flag away: configure the Google provider in the
-Supabase dashboard, then flip `GOOGLE_ENABLED` in `src/SignIn.tsx`.
+Password is the default, because it costs no email at all — the built-in sender
+allows two an hour, which is not enough to onboard a team. An account made with
+a code has no password until the account bar gives it one.
+
+The code replaced a magic link deliberately. A link is single-use, so it dies
+when a mail scanner prefetches it, when a newer one supersedes it, or when the
+page is reloaded — all of which read to the person signing in as "expired". A
+code has no URL to prefetch and no redirect to keep in an allow-list, which is
+also why renaming the repository can no longer break sign-in.
+
+**Onboarding costs zero emails**: send an invite link, they set a password, they
+are in. Without the link that would be two — an invite and a login code — and
+the hourly cap makes two people at once impossible.
+
+Google sign-in is written and one flag away, but genuinely needs setup nobody
+else can do: create an OAuth client in the Google Cloud console, paste its ID
+and secret into the Supabase dashboard, then flip `GOOGLE_ENABLED` in
+`src/SignIn.tsx`.
 
 ### The privacy rule is enforced in the database
 
