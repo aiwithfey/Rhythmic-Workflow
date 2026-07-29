@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 
 // ---- Brand palette (AI Goddesses) ----
 const C = {
@@ -362,6 +362,56 @@ function TicketCard({ t, warn, onOpen, onDragStart, dragging }) {
 function TicketModal({ task, warn, me, onPatch, onDelete, onClose, onShowInCalendar, onUnpublish, onAddUpdate }) {
   const [draft, setDraft] = useState("");
   const members = useMembers();
+
+  // Every keystroke here writes to the tasks table, which the realtime
+  // subscription hears and answers with a full reload a moment later. Bound
+  // straight to server state, that reload lands mid-keystroke and snaps the
+  // field back to whatever the server held a moment before — read by someone
+  // typing as their last character vanishing. These two fields keep their own
+  // draft, synced only when a different ticket opens, so a background reload
+  // can never overwrite text still being typed. The write itself is debounced
+  // so a burst of keystrokes becomes one save instead of one per character.
+  const [textDraft, setTextDraft] = useState(task?.text || "");
+  const [notesDraft, setNotesDraft] = useState(task?.notes || "");
+  const [blockedNoteDraft, setBlockedNoteDraft] = useState(task?.blockedNote || "");
+  const textTimer = useRef(null);
+  const notesTimer = useRef(null);
+  const blockedNoteTimer = useRef(null);
+
+  useEffect(() => {
+    setTextDraft(task?.text || "");
+    setNotesDraft(task?.notes || "");
+    setBlockedNoteDraft(task?.blockedNote || "");
+  }, [task?.id]);
+
+  function editText(value) {
+    setTextDraft(value);
+    clearTimeout(textTimer.current);
+    textTimer.current = setTimeout(() => onPatch(task.id, { text: value }), 500);
+  }
+  function editNotes(value) {
+    setNotesDraft(value);
+    clearTimeout(notesTimer.current);
+    notesTimer.current = setTimeout(() => onPatch(task.id, { notes: value }), 500);
+  }
+  function editBlockedNote(value) {
+    setBlockedNoteDraft(value);
+    clearTimeout(blockedNoteTimer.current);
+    blockedNoteTimer.current = setTimeout(() => onPatch(task.id, { blockedNote: value }), 500);
+  }
+  function flushText() {
+    clearTimeout(textTimer.current);
+    if (textDraft !== task.text) onPatch(task.id, { text: textDraft });
+  }
+  function flushNotes() {
+    clearTimeout(notesTimer.current);
+    if (notesDraft !== (task.notes || "")) onPatch(task.id, { notes: notesDraft });
+  }
+  function flushBlockedNote() {
+    clearTimeout(blockedNoteTimer.current);
+    if (blockedNoteDraft !== (task.blockedNote || "")) onPatch(task.id, { blockedNote: blockedNoteDraft });
+  }
+
   if (!task) return null;
   const owner = members.find((x) => x.id === task.ownerId) || null;
   const tint = NEED_TINT[task.energy];
@@ -384,8 +434,9 @@ function TicketModal({ task, warn, me, onPatch, onDelete, onClose, onShowInCalen
         </div>
 
         <textarea
-          value={task.text}
-          onChange={(e) => onPatch(task.id, { text: e.target.value })}
+          value={textDraft}
+          onChange={(e) => editText(e.target.value)}
+          onBlur={flushText}
           style={{
             width: "100%", minHeight: 54, borderRadius: 10, border: `1px solid ${tint.edge}`,
             padding: 10, fontSize: 14.5, fontWeight: 600, fontFamily: BODY, resize: "vertical",
@@ -406,8 +457,9 @@ function TicketModal({ task, warn, me, onPatch, onDelete, onClose, onShowInCalen
 
         <Section title="פרטים">
           <textarea
-            value={task.notes || ""}
-            onChange={(e) => onPatch(task.id, { notes: e.target.value })}
+            value={notesDraft}
+            onChange={(e) => editNotes(e.target.value)}
+            onBlur={flushNotes}
             placeholder="מה צריך לדעת כדי לעשות את זה — קישורים, החלטות, מה כבר נוסה..."
             style={{
               width: "100%", minHeight: 64, borderRadius: 10, border: `1px solid ${C.line}`,
@@ -507,8 +559,9 @@ function TicketModal({ task, warn, me, onPatch, onDelete, onClose, onShowInCalen
           </button>
           {task.blocked && (
             <input
-              value={task.blockedNote}
-              onChange={(e) => onPatch(task.id, { blockedNote: e.target.value })}
+              value={blockedNoteDraft}
+              onChange={(e) => editBlockedNote(e.target.value)}
+              onBlur={flushBlockedNote}
               placeholder="על מה מחכים?"
               style={{ ...textInput, marginTop: 8 }}
             />
