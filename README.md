@@ -111,7 +111,7 @@ never reach Supabase.
 `.github/workflows/deploy.yml` builds against the database and publishes to
 GitHub Pages on every push to `main`, landing at:
 
-**https://aiwithfey.github.io/Rhythmic-Workflow-/**
+**https://aiwithfey.github.io/Rhythmic-Workflow/**
 
 Two things have to be switched on once, by hand:
 
@@ -121,7 +121,7 @@ Two things have to be switched on once, by hand:
    the Site URL, or as an additional redirect URL. Magic links are refused if
    they point somewhere that is not on that list.
 
-The app is served from `/Rhythmic-Workflow-/`, not the domain root, so sign-in
+The app is served from a repository subpath, not the domain root, so sign-in
 sends `origin + pathname` as the return address rather than `origin` alone —
 otherwise every magic link would come back to the top of `aiwithfey.github.io`
 and miss the app entirely. `dist/index.html` is also published as `404.html`, so
