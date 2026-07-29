@@ -127,9 +127,9 @@ export default function SignIn() {
         {GOOGLE_ENABLED && step === "email" && (
           <>
             <button type="button" onClick={signInWithGoogle} style={{
-              width: "100%", background: "#4285F4", color: "#fff", border: "none", borderRadius: 12,
+              width: "100%", background: "#fff", color: C.ink, border: `1px solid ${C.line}`, borderRadius: 12,
               padding: "11px 0", fontSize: 14, fontWeight: 700, fontFamily: DISPLAY, cursor: "pointer",
-              boxSizing: "border-box", boxShadow: "0 4px 12px rgba(66,133,244,0.35)",
+              boxSizing: "border-box",
             }}>המשיכי עם Google</button>
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.inkSoft, fontSize: 11.5, margin: "14px 0" }}>
               <span style={{ flex: 1, height: 1, background: C.line }} />
