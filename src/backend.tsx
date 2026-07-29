@@ -279,6 +279,40 @@ export function useBackend(session) {
       fail(error);
     },
 
+    // Straight to an account with a password, no email anywhere in the flow.
+    // The service-role key this needs cannot be in the browser, so the work
+    // happens in an edge function that re-checks the caller is an owner.
+    async adminCreateUser({ email, password, name }) {
+      const { data, error } = await supabase.functions.invoke("admin-create-user", {
+        body: { email, password, name },
+      });
+      const failure = error
+        ? (await (async () => {
+            // invoke() hides the body of a non-2xx response inside the error
+            try { return (await error.context?.json())?.error; } catch { return null; }
+          })()) || error.message
+        : data?.error;
+
+      if (failure) {
+        const said = {
+          email_taken: "כבר קיים חשבון עם הכתובת הזו.",
+          weak_password: "הסיסמה צריכה להיות לפחות 6 תווים.",
+          bad_email: "כתובת המייל לא תקינה.",
+          not_an_owner: "רק מנהלת הצוות יכולה להוסיף משתמשות ישירות.",
+          not_on_a_team: "החשבון שלך לא משויך לצוות.",
+          unauthenticated: "צריך להתחבר מחדש.",
+        }[failure] || `לא הצלחנו ליצור את המשתמשת: ${failure}`;
+        const missing = /Failed to send a request|not found|404/i.test(String(failure));
+        fail({ message: missing
+          ? "פונקציית ההוספה עוד לא פרוסה — צריך להריץ supabase functions deploy admin-create-user."
+          : said });
+        return said;
+      }
+
+      await load();
+      return null;
+    },
+
     // A link anyone can be sent, good for one person, then spent.
     async createInviteLink(label) {
       const { data, error } = await supabase.rpc("create_invite_link", {
@@ -342,5 +376,9 @@ export function useBackend(session) {
     },
   }), [state.teamId, state.days, state.tasks, userId, fail]);
 
-  return { ...state, me: userId, actions, reload: load };
+  // Hiding the admin controls is only tidiness; the edge function is what
+  // actually decides, and it re-checks the role server-side.
+  const isOwner = state.members.some((m) => m.id === userId && m.role === "owner");
+
+  return { ...state, me: userId, isOwner, actions, reload: load };
 }
