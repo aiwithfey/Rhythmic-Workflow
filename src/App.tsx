@@ -93,6 +93,21 @@ function LiveApp({ session }) {
 
   return (
     <>
+      {/* Anything the database refuses has to reach the screen. Without this a
+          failed write looks exactly like a button that does nothing. */}
+      {backend.error && backend.error !== "no-team" && (
+        <div style={{
+          direction: "rtl", fontFamily: BODY, background: "#F7E3E0", color: "#C0574F",
+          padding: "10px 14px", display: "flex", alignItems: "center", gap: 10,
+          justifyContent: "center", fontSize: 12.5, lineHeight: 1.5,
+        }}>
+          <span style={{ maxWidth: 620 }}>{backend.error}</span>
+          <button onClick={backend.clearError} style={{
+            background: "none", border: "none", color: "#C0574F",
+            fontSize: 14, cursor: "pointer", flexShrink: 0,
+          }}>✕</button>
+        </div>
+      )}
       <RhythmCalendar backend={backend} />
       <AccountBar
         profile={profile}
