@@ -41,7 +41,10 @@ const STATUS_ORDER = ["backlog", "planned", "doing", "done"];
 
 // the energy a ticket *needs*. rest is never a work requirement.
 const NEEDS = ["open", "surge", "connection"];
-const NEED_LABEL = { open: "גמיש", surge: "עומק", connection: "אנשים" };
+// One name per energy. The board used to shorten these ("עומק", "אנשים"),
+// which meant the same thing was called two different things depending on the
+// screen — so they come from the calendar's own labels instead.
+const NEED_LABEL = Object.fromEntries(NEEDS.map((k) => [k, BLOCKS[k].label]));
 
 // Card surfaces: the chip colors are too loud to sit under text, so these are
 // the same hues pulled almost all the way to paper. A card should read as
@@ -972,8 +975,11 @@ export default function RhythmCalendar({ backend = null }) {
     const e = energyOn(t.ownerId, t.dateKey);
     if (!e) return null;
     if (e === "rest") return { level: "block", text: "מתוזמן ליום מנוחה מוגן" };
-    if (t.energy === "surge" && e === "connection") return { level: "warn", text: "משימת עומק ביום חיבור" };
-    if (t.energy === "connection" && e === "surge") return { level: "warn", text: "משימת אנשים ביום עומק" };
+    // built from the same labels, so a rename cannot leave these behind
+    if (t.energy === "surge" && e === "connection")
+      return { level: "warn", text: `משימת ${NEED_LABEL.surge} ביום ${NEED_LABEL.connection}` };
+    if (t.energy === "connection" && e === "surge")
+      return { level: "warn", text: `משימת ${NEED_LABEL.connection} ביום ${NEED_LABEL.surge}` };
     return null;
   }
 
