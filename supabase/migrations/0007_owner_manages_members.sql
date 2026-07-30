@@ -97,7 +97,7 @@ begin
   end if;
 
   delete from public.tasks
-   where owner_id = p_user and not ticket;
+   where owner_id = p_user and not ticket and team_id = v_team;
 
   update public.tasks
      set owner_id = null
@@ -109,6 +109,53 @@ begin
   return 'removed';
 end;
 $$;
+
+-- Removal has to actually revoke reach, and until now it did not. Every branch
+-- of the task policies was reachable on identity alone: `created_by` still
+-- points at whoever wrote the card, so someone taken off the team kept both
+-- read and write on every ticket they had created. The app never shows them —
+-- they land on "not on a team yet" — but the publishable key is public and
+-- their token still verifies, so the REST endpoint answered them anyway.
+--
+-- Membership is now the outer condition on all three, with the old identity
+-- test kept inside it. For anyone still on the team nothing changes; for
+-- anyone removed, every branch closes at once.
+drop policy if exists tasks_read on public.tasks;
+create policy tasks_read on public.tasks for select to authenticated
+  using (
+    public.is_team_member(team_id)
+    and (
+      owner_id = (select auth.uid())
+      or created_by = (select auth.uid())
+      or ticket
+    )
+  );
+
+drop policy if exists tasks_update on public.tasks;
+create policy tasks_update on public.tasks for update to authenticated
+  using (
+    public.is_team_member(team_id)
+    and (
+      owner_id = (select auth.uid())
+      or created_by = (select auth.uid())
+      or ticket
+    )
+  )
+  with check (
+    public.is_team_member(team_id)
+    and (
+      owner_id = (select auth.uid())
+      or created_by = (select auth.uid())
+      or ticket
+    )
+  );
+
+drop policy if exists tasks_delete on public.tasks;
+create policy tasks_delete on public.tasks for delete to authenticated
+  using (
+    public.is_team_member(team_id)
+    and (owner_id = (select auth.uid()) or created_by = (select auth.uid()))
+  );
 
 revoke all on function public.is_team_owner()          from anon, public;
 revoke all on function public.pending_members()        from anon, public;
