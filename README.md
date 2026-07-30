@@ -147,16 +147,26 @@ Console → OAuth consent screen → test users), that gate moved outside the ap
 entirely, so the in-app invite panel was removed rather than left as a second,
 redundant gate.
 
-**This leaves a real gap worth knowing about.** Google Console decides who can
-*authenticate* with Google; it says nothing about who becomes a *team member*
-once they do. The trigger that used to auto-join a new sign-in only fires when
-the address matches a row in `invites` — and nothing in the app writes to that
-table anymore. A newly Google-authenticated person still lands on "not on a
-team yet" with no self-service way out. Getting them the rest of the way in
-means either inserting a row into `team_members` by hand in the Supabase SQL
-editor, or merging the separate owner-created-account PR, which creates a
-password-based account directly rather than working with an existing Google
-sign-in. Neither is wired into the app UI right now.
+Google Console decides who can *authenticate*; it says nothing about who
+becomes a *team member* once they do. **ניהול הצוות**, under the calendar and
+visible only to the owner, is the second half: everyone who has signed in but
+joined no team is listed there by name and address, and one press puts them on
+the team. The badge on the collapsed panel counts them, so a person waiting is
+not something the owner has to go looking for.
+
+The same panel removes a member. What that costs is spelled out before the
+second press, because the two halves of their work are treated differently:
+their **tickets stay** on the board as unassigned — the board already renders
+an ownerless ticket as *מחפשת מישהי* — while their **private notes go with
+them**, since nobody else could ever read those anyway. An owner cannot remove
+themselves; that would leave a team nobody can approve into.
+
+Both controls are `security definer` functions that re-check the caller's role
+in the database (`approve_member`, `remove_member`, `pending_members` in
+`0007`). Hiding the panel from non-owners is a courtesy — the rule is enforced
+where it cannot be edited from a console. There is no service-role key and no
+edge function involved, so nothing has to be deployed separately for this to
+work.
 
 Password and code sign-up remain open to anyone who reaches the sign-in
 screen — Google Console's allow-list only applies to the Google button. The
