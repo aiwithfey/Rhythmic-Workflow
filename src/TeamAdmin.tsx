@@ -13,7 +13,7 @@ const BODY = "'Assistant','Segoe UI',system-ui,-apple-system,sans-serif";
  * Only the owner sees it, and only the owner's calls survive the database —
  * the functions behind these two buttons re-check the role themselves.
  */
-export default function TeamAdmin({ pending, members, me, onApprove, onRemove }) {
+export default function TeamAdmin({ pending, members, me, onApprove, onDecline, onRemove }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(null); // user id awaiting a second press
   const others = members.filter((m) => m.id !== me);
@@ -61,19 +61,48 @@ export default function TeamAdmin({ pending, members, me, onApprove, onRemove })
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
             {pending.map((p) => (
-              <div key={p.id} style={row}>
-                <div style={{ flex: 1, minWidth: 0, textAlign: "right" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{p.name}</div>
-                  <div style={{
-                    fontSize: 11, color: C.mute, direction: "ltr", textAlign: "right",
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}>{p.email}</div>
+              <div key={p.id} style={{ ...row, flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0, textAlign: "right" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                      {p.name}
+                      {/* Someone who pressed the button is not the same as
+                          someone who merely signed in once and wandered off. */}
+                      {p.requested ? (
+                        <span style={{
+                          background: C.magenta, color: "#fff", borderRadius: 999,
+                          fontSize: 10, fontWeight: 700, padding: "1px 7px",
+                        }}>ביקשה להצטרף</span>
+                      ) : (
+                        <span style={{ fontSize: 10, color: C.mute, fontWeight: 700 }}>
+                          נכנסה, לא ביקשה
+                        </span>
+                      )}
+                    </div>
+                    <div style={{
+                      fontSize: 11, color: C.mute, direction: "ltr", textAlign: "right",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{p.email}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => onApprove(p.id)} style={{
+                      background: C.sage, color: "#fff", border: "none", borderRadius: 999,
+                      padding: "5px 13px", fontSize: 12, fontWeight: 700,
+                      cursor: "pointer", fontFamily: DISPLAY,
+                    }}>אישור</button>
+                    <button onClick={() => onDecline(p.id)} title="להסתיר מהרשימה" style={{
+                      background: "none", border: `1px solid ${C.line}`, borderRadius: 999,
+                      color: C.inkSoft, fontSize: 11.5, padding: "5px 11px",
+                      cursor: "pointer", fontFamily: BODY,
+                    }}>דחייה</button>
+                  </div>
                 </div>
-                <button onClick={() => onApprove(p.id)} style={{
-                  background: C.sage, color: "#fff", border: "none", borderRadius: 999,
-                  padding: "5px 13px", fontSize: 12, fontWeight: 700,
-                  cursor: "pointer", fontFamily: DISPLAY, flexShrink: 0,
-                }}>אישור</button>
+                {p.note && (
+                  <div style={{
+                    fontSize: 11.5, color: C.inkSoft, lineHeight: 1.6, textAlign: "right",
+                    background: "#fff", borderRadius: 8, padding: "6px 9px",
+                  }}>“{p.note}”</div>
+                )}
               </div>
             ))}
           </div>

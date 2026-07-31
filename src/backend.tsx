@@ -148,6 +148,9 @@ export function useBackend(session) {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, scheduleReload)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_updates" }, scheduleReload)
       .on("postgres_changes", { event: "*", schema: "public", table: "day_marks" }, scheduleReload)
+      // So a join request reaches an already-open owner panel instead of
+      // waiting for whatever else happens to trigger a reload.
+      .on("postgres_changes", { event: "*", schema: "public", table: "join_requests" }, scheduleReload)
       .subscribe();
     return () => {
       clearTimeout(reloadTimer.current);
@@ -277,6 +280,15 @@ export function useBackend(session) {
     // courtesy, not the rule.
     async approveMember(id) {
       const { error } = await supabase.rpc("approve_member", { p_user: id });
+      if (error) return fail(error);
+      load();
+    },
+
+    // Declining is what finally clears someone out of the queue — without it
+    // anyone who signed in once sits there forever, and a person removed on
+    // purpose reappears looking like a newcomer.
+    async declineMember(id) {
+      const { error } = await supabase.rpc("decline_request", { p_user: id });
       if (error) return fail(error);
       load();
     },
