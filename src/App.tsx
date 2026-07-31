@@ -3,6 +3,7 @@ import RhythmCalendar from "./RhythmCalendar";
 import SignIn from "./SignIn";
 import AccountBar from "./AccountBar";
 import TeamAdmin from "./TeamAdmin";
+import JoinTeam from "./JoinTeam";
 import { supabase, isLive } from "./supabase";
 import { useBackend } from "./backend";
 
@@ -32,15 +33,10 @@ function LiveApp({ session }) {
 
   if (backend.error === "no-team") {
     return (
-      <Centered>
-        <div style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, marginBottom: 10 }}>
-          את מחוברת, אבל עוד לא בצוות
-        </div>
-        <div style={{ color: C.inkSoft }}>
-          פנייה למישהי בצוות כדי להצטרף.
-        </div>
-        <button onClick={() => supabase.auth.signOut()} style={signOutBtn}>יציאה</button>
-      </Centered>
+      <JoinTeam
+        email={session.user.email}
+        onSignOut={() => supabase.auth.signOut()}
+      />
     );
   }
 
@@ -70,6 +66,7 @@ function LiveApp({ session }) {
           members={backend.members}
           me={backend.me}
           onApprove={backend.actions.approveMember}
+          onDecline={backend.actions.declineMember}
           onRemove={backend.actions.removeMember}
         />
       )}

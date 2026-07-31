@@ -49,6 +49,14 @@ export default function AccountBar({ profile, email, onRename, onSignOut, onSetP
         maxWidth: 480, margin: "0 auto", background: "#fff", borderRadius: 16,
         padding: 12, boxShadow: "0 2px 10px rgba(46,34,48,0.06)",
       }}>
+      {/* The rename lived here all along, as a small word next to the name,
+          and went unfound. A section with its own title is the difference
+          between a control that exists and one people can see. */}
+      <div style={{
+        fontFamily: DISPLAY, fontSize: 12, fontWeight: 700, color: C.inkSoft,
+        marginBottom: 10, textAlign: "right",
+      }}>האזור האישי שלי</div>
+
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{
           width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
@@ -84,20 +92,25 @@ export default function AccountBar({ profile, email, onRename, onSignOut, onSetP
           </div>
         ) : (
           <div style={{ flex: 1, minWidth: 0, textAlign: "right" }}>
-            <button onClick={start} title="שינוי השם" style={{
-              background: "none", border: "none", padding: 0, cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 6, fontFamily: BODY,
-            }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>
-                {profile?.name || "בלי שם"}
-              </span>
-              <span style={{ fontSize: 11, color: C.magenta, fontWeight: 700 }}>שינוי</span>
-            </button>
+            <div style={{ fontSize: 10.5, color: C.mute, fontWeight: 700 }}>
+              שם התצוגה — כך רואות אותך בלוח
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>
+              {profile?.name || "בלי שם"}
+            </div>
             <div style={{
               fontSize: 11, color: C.mute, direction: "ltr", textAlign: "right",
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>{email}</div>
           </div>
+        )}
+
+        {!editing && (
+          <button onClick={start} style={{
+            background: "none", border: `1px solid ${C.line}`, borderRadius: 999,
+            color: C.magenta, fontSize: 11.5, fontWeight: 700, padding: "5px 11px",
+            cursor: "pointer", flexShrink: 0, fontFamily: BODY,
+          }}>שינוי שם</button>
         )}
 
         <button onClick={onSignOut} style={{

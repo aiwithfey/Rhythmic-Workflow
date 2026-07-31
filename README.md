@@ -154,6 +154,31 @@ joined no team is listed there by name and address, and one press puts them on
 the team. The badge on the collapsed panel counts them, so a person waiting is
 not something the owner has to go looking for.
 
+### Asking to join
+
+Signing in without a team used to be a dead end — the screen said "ask someone
+on the team" and gave you nothing to press, while the owner's panel inferred
+who was waiting from the *absence* of a membership row, which is not a request
+but a silence. Nobody could tell "signed in once by accident" from "please let
+me in", and a person removed on purpose came straight back to the top of the
+queue looking like a newcomer.
+
+So a request is now a thing someone makes. A teamless account gets the join
+screen: the team's name, a one-line note about who they are, and a button. That
+writes a row to `join_requests`, which is on the realtime publication, so it
+reaches an owner panel that is already open instead of waiting for a reload.
+
+The panel marks who actually asked — **ביקשה להצטרף** with their note, against
+a quieter *נכנסה, לא ביקשה* for someone who only signed in — and sorts the
+askers first. **דחייה** writes a `declined` row, which is what finally lets the
+owner clear the queue: someone dismissed stops appearing, including a member
+who was just removed. They can ask again if that was a mistake, and the request
+returns as pending.
+
+A teamless account cannot read `public.teams` — the policy there wants
+membership, which is the thing being asked for — so `joinable_teams()` is the
+one keyhole: the name of a team you might join, and nothing else about it.
+
 The same panel removes a member. What that costs is spelled out before the
 second press, because the two halves of their work are treated differently:
 their **tickets stay** on the board as unassigned — the board already renders
