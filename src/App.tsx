@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import RhythmCalendar from "./RhythmCalendar";
 import SignIn from "./SignIn";
 import AccountBar from "./AccountBar";
+import TeamAdmin from "./TeamAdmin";
 import { supabase, isLive } from "./supabase";
 import { useBackend } from "./backend";
 
@@ -63,6 +64,15 @@ function LiveApp({ session }) {
         </div>
       )}
       <RhythmCalendar backend={backend} />
+      {backend.isOwner && (
+        <TeamAdmin
+          pending={backend.pending}
+          members={backend.members}
+          me={backend.me}
+          onApprove={backend.actions.approveMember}
+          onRemove={backend.actions.removeMember}
+        />
+      )}
       <AccountBar
         profile={profile}
         email={session.user.email}

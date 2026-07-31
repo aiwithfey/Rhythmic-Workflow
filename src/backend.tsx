@@ -67,6 +67,7 @@ export function useBackend(session) {
     error: null,
     teamId: null,
     members: [],
+    pending: [],   // authenticated, not yet on the team — owner only
     days: {},      // my own: { [dateKey]: { type, note } }
     teamDays: {},  // everyone's energy: { [userId]: { [dateKey]: type } }
     tasks: [],
@@ -85,12 +86,15 @@ export function useBackend(session) {
       }
       const teamId = membership.team_id;
 
-      const [members, marks, notes, tasks, updates] = await Promise.all([
+      const [members, marks, notes, tasks, updates, pending] = await Promise.all([
         supabase.from("team_members").select("user_id, role, profiles(id, name, initials)").eq("team_id", teamId),
         supabase.from("day_marks").select("user_id, day, type"),
         supabase.from("day_notes").select("day, note").eq("user_id", userId),
         supabase.from("tasks").select("*").eq("team_id", teamId),
         supabase.from("task_updates").select("*").order("created_at", { ascending: true }),
+        // Returns nothing to anyone who is not the owner, so it needs no guard
+        // here. Tolerated if missing: the function arrives with a migration.
+        supabase.rpc("pending_members"),
       ]);
       for (const r of [members, marks, notes, tasks, updates]) if (r.error) throw r.error;
 
@@ -120,6 +124,7 @@ export function useBackend(session) {
         members: members.data
           .filter((r) => r.profiles)
           .map((r) => ({ id: r.profiles.id, name: r.profiles.name, initials: r.profiles.initials, role: r.role })),
+        pending: pending.error ? [] : (pending.data || []),
         days,
         teamDays,
         tasks: tasks.data.map((row) => rowToTask(row, byTask[row.id])),
@@ -268,6 +273,21 @@ export function useBackend(session) {
       fail(error);
     },
 
+    // The database re-checks the caller is an owner; hiding the buttons is a
+    // courtesy, not the rule.
+    async approveMember(id) {
+      const { error } = await supabase.rpc("approve_member", { p_user: id });
+      if (error) return fail(error);
+      load();
+    },
+
+    // Their tickets survive as unassigned work; their private notes do not.
+    async removeMember(id) {
+      const { error } = await supabase.rpc("remove_member", { p_user: id });
+      if (error) return fail(error);
+      load();
+    },
+
     // swapping two days takes their tasks with them
     async swapDays(fromKey, toKey) {
       const a = state.days[fromKey] || { type: "open", note: "" };
@@ -297,9 +317,10 @@ export function useBackend(session) {
       ]);
       fail(results.find((r) => r.error)?.error);
     },
-  }), [state.teamId, state.days, state.tasks, userId, fail]);
+  }), [state.teamId, state.days, state.tasks, userId, fail, load]);
 
   const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
+  const isOwner = state.members.find((m) => m.id === userId)?.role === "owner";
 
-  return { ...state, me: userId, actions, reload: load, clearError };
+  return { ...state, me: userId, isOwner, actions, reload: load, clearError };
 }
